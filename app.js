@@ -141,7 +141,6 @@ document.getElementById("send-order").addEventListener("click", () => {
   });
   msg += `%0A*Total: ${formatPrice(totalPrice)}*`;
 
-  /* ← Reemplazá con el número real (código de país + número, sin + ni espacios) */
   const phone = "5491100000000";
   window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
 });
