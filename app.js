@@ -2,27 +2,70 @@
    NF Burgers — app.js
    ───────────────────────────────────────────────── */
 
+const BASE_BURGA = "Pan de papa, carne smasheada, cheddar";
+const BASE_BURGA2 = "Pan de papa, doble carne smasheada, cheddar";
+const BASE_BURGA3 = "Pan de papa, triple carne smasheada, cheddar";
+const INCLUYE_PAPAS = ".\nIncluye papas fritas";
+const PRECIO_BEBIDA_CHICA = 2000
+const PRECIO_BEBIDA_GRANDE = 5000
+
 const categories = [
   {
-    name: "Burgers",
+    name: "Hamburguesas simples",
     items: [
-      { name: "Classic Burger",  description: "Doble carne, cheddar y salsa",       price: 8500 },
-      { name: "Cheese Bacon",    description: "Cheddar, bacon crispy y pickles",      price: 9500 },
+      { name: "CheeseBurger",  description: BASE_BURGA+INCLUYE_PAPAS, price: 12000 },
+      { name: "Cuartel",    description: BASE_BURGA+", cebolla picada, ketchup, mostaza"+INCLUYE_PAPAS,      price: 12500 },
+      { name: "CheeseBacon",    description: BASE_BURGA+", bacon, ketchup"+INCLUYE_PAPAS,      price: 13000 },
+      { name: "Pepinium",    description: BASE_BURGA+", pepinillos, lechuga, salsa mil islas"+INCLUYE_PAPAS,      price: 13000 },
+      { name: "Americana",    description: BASE_BURGA+", lechuga, tomate, salsa NF"+INCLUYE_PAPAS,      price: 13000 },
+      { name: "Bacon Honey",    description: BASE_BURGA+", bacon, miel, salsa BBQ"+INCLUYE_PAPAS,      price: 14000 },
+      { name: "Oklahoma",    description: "Pan de papa, carne smasheada con cebolla, cheddar, bacon, salsa alioli"+INCLUYE_PAPAS,      price: 16000 },
+      { name: "Crispy Onion",    description: BASE_BURGA+" bacon, cebolla crispy, salsa BBQ"+INCLUYE_PAPAS,      price: 16000 },
     ]
   },
   {
-    name: "Fries",
+    name: "Hamburguesas dobles",
     items: [
-      { name: "Classic Fries",  description: "Papas fritas",        price: 4000 },
-      { name: "Cheddar Fries",  description: "Cheddar y panceta",   price: 5500 },
+      { name: "CheeseBurger",  description: BASE_BURGA2+INCLUYE_PAPAS, price: 15000 },
+      { name: "Cuartel",    description: BASE_BURGA2+", cebolla picada, ketchup, mostaza"+INCLUYE_PAPAS,      price: 15500 },
+      { name: "CheeseBacon",    description: BASE_BURGA2+", bacon, ketchup"+INCLUYE_PAPAS,      price: 16000 },
+      { name: "Pepinium",    description: BASE_BURGA2+", pepinillos, lechuga, salsa mil islas"+INCLUYE_PAPAS,      price: 16000 },
+      { name: "Americana",    description: BASE_BURGA2+", lechuga, tomate, salsa NF"+INCLUYE_PAPAS,      price: 16000 },
+      { name: "Bacon Honey",    description: BASE_BURGA2+", bacon, miel, salsa BBQ"+INCLUYE_PAPAS,      price: 17000 },
+      { name: "Oklahoma",    description: "Pan de papa, doble carne smasheada con cebolla, cheddar, bacon, salsa alioli"+INCLUYE_PAPAS,      price: 18000 },
+      { name: "Crispy Onion",    description: BASE_BURGA2+" bacon, cebolla crispy, salsa BBQ"+INCLUYE_PAPAS,      price: 18000 },
     ]
   },
   {
-    name: "Drinks",
+    name: "Hamburguesas triples",
     items: [
-      { name: "Coca Cola", description: "500ml", price: 2500 },
+      { name: "CheeseBurger",  description: BASE_BURGA3+INCLUYE_PAPAS, price: 18000 },
+      { name: "CheeseBacon",    description: BASE_BURGA3+", bacon, ketchup"+INCLUYE_PAPAS,      price: 19000 },
     ]
-  }
+  },
+  {
+    name: "Bebidas chicas",
+    items: [
+      { name: "Coca-Cola Original 600ml", description: "600ml", price: PRECIO_BEBIDA_CHICA },
+      { name: "Coca-Cola Cero 600ml", description: "600ml", price: PRECIO_BEBIDA_CHICA },
+      { name: "Sprite Original 600ml", description: "600ml", price: PRECIO_BEBIDA_CHICA },
+      { name: "Agua 500ml", description: "500ml", price: PRECIO_BEBIDA_CHICA },
+    ]
+  },
+  {
+    name: "Bebidas grandes",
+    items: [
+      { name: "Coca-Cola Original 2.25lts", description: "2.25lts", price: PRECIO_BEBIDA_GRANDE },
+      { name: "Coca-Cola Cero 2.25lts", description: "2.25lts", price: PRECIO_BEBIDA_GRANDE },
+      { name: "Sprite Original 2.25lts", description: "2.25lts", price: PRECIO_BEBIDA_GRANDE },
+    ]
+  },
+  {
+    name: "Adicionales",
+    items: [
+      { name: "Papas fritas",  description: "Papas fritas", price: 2000 },
+    ]
+  },
 ];
 
 /* ─── State ──────────────────────────────────────
