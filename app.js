@@ -109,22 +109,53 @@ function animateCartIcon() {
   cartCountEl.classList.add("pop");
 }
 
-/* ─── Open / close cart ───────────────────────── */
+/* ─── Open / close cart ─────────────────────────
+   En mobile, el botón/gesto "atrás" del navegador
+   sale de la página entera si no hay un estado de
+   historial que cerrar primero. Para evitar que el
+   usuario quede "atrapado" en el carrito, agregamos
+   un estado al historial al abrir, y lo consumimos
+   al cerrar.
+   ─────────────────────────────────────────────── */
+let cartHistoryPushed = false;
+
 function openCart() {
   cartModal.classList.add("open");
   overlay.classList.add("show");
   document.body.style.overflow = "hidden";
+
+  if (!cartHistoryPushed) {
+    history.pushState({ cartOpen: true }, "");
+    cartHistoryPushed = true;
+  }
 }
 
-function closeCart() {
+function closeCart(fromPopState = false) {
   cartModal.classList.remove("open");
   overlay.classList.remove("show");
   document.body.style.overflow = "";
+
+  if (cartHistoryPushed) {
+    cartHistoryPushed = false;
+    if (!fromPopState) {
+      // Consumimos el estado que agregamos al abrir,
+      // sin esto el usuario tendría que tocar "atrás" dos veces.
+      history.back();
+    }
+  }
 }
 
 document.getElementById("cart-icon").addEventListener("click", openCart);
-document.getElementById("close-cart").addEventListener("click", closeCart);
-overlay.addEventListener("click", closeCart);
+document.getElementById("close-cart").addEventListener("click", () => closeCart());
+overlay.addEventListener("click", () => closeCart());
+
+// Botón/gesto "atrás" del navegador (mobile) cierra el carrito
+// en vez de salir de la página.
+window.addEventListener("popstate", () => {
+  if (cartModal.classList.contains("open")) {
+    closeCart(true);
+  }
+});
 
 /* ─── Send to WhatsApp ────────────────────────── */
 document.getElementById("send-order").addEventListener("click", () => {
@@ -141,8 +172,10 @@ document.getElementById("send-order").addEventListener("click", () => {
   });
   msg += `%0A*Total: ${formatPrice(totalPrice)}*`;
 
-  const phone = "5491168461341";
+  const phone = "5491100000000";
   window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+
+  closeCart();
 });
 
 /* ─── Render menu ─────────────────────────────── */
