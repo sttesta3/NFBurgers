@@ -141,7 +141,7 @@ document.getElementById("send-order").addEventListener("click", () => {
   });
   msg += `%0A*Total: ${formatPrice(totalPrice)}*`;
 
-  const phone = "5491100000000";
+  const phone = "5491168461341";
   window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
 });
 
