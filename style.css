@@ -95,6 +95,29 @@ body {
   letter-spacing: 0.2px;
 }
 
+.badge-status {
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  transition: background 0.15s;
+}
+
+.badge-status:hover { background: var(--grey-1); }
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grey-3);
+  flex-shrink: 0;
+}
+
+.status-dot.open   { background: #3ec46d; box-shadow: 0 0 0 3px rgba(62,196,109,0.18); }
+.status-dot.closed { background: #e5524d; box-shadow: 0 0 0 3px rgba(229,82,77,0.18); }
+
 /* ─── CONTAINER & MENU LABEL ───────────────────── */
 .container {
   max-width: 720px;
@@ -147,8 +170,10 @@ body {
   color: var(--white);
 }
 
-/* ─── SIZE SELECTOR SHEET ───────────────────────── */
-#size-sheet {
+/* ─── BOTTOM SHEETS (tamaño / horarios / checkout) ─ */
+#size-sheet,
+#schedule-sheet,
+#checkout-sheet {
   position: fixed;
   left: 0;
   right: 0;
@@ -157,13 +182,15 @@ body {
   color: var(--white);
   border-radius: 20px 20px 0 0;
   z-index: 220;
-  max-height: 80vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   transition: bottom 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-#size-sheet.open { bottom: 0; }
+#size-sheet.open,
+#schedule-sheet.open,
+#checkout-sheet.open { bottom: 0; }
 
 .sheet-handle {
   width: 40px;
@@ -239,6 +266,136 @@ body {
   font-size: 22px;
   color: var(--accent);
 }
+
+/* ─── SCHEDULE LIST ─────────────────────────────── */
+.schedule-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+}
+
+.schedule-row.is-today {
+  border-color: var(--accent);
+  background: rgba(212,0,0,0.1);
+}
+
+.schedule-row .day-name {
+  font-family: var(--font-subtitle);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.schedule-row .day-hours {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+}
+
+.schedule-row.is-closed .day-hours {
+  color: rgba(255,255,255,0.3);
+}
+
+.ghost-btn {
+  width: 100%;
+  padding: 14px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--white);
+  font-family: var(--font-subtitle);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ghost-btn:hover { background: rgba(255,255,255,0.06); }
+
+/* ─── CHECKOUT FORM ──────────────────────────────── */
+.form-group { margin-bottom: 6px; }
+
+.form-label {
+  display: block;
+  font-family: var(--font-subtitle);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 10px;
+}
+
+.pill-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  flex: 1;
+  min-width: 130px;
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: var(--white);
+  font-family: var(--font-subtitle);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+
+.pill:hover { border-color: rgba(212,0,0,0.6); }
+
+.pill.selected {
+  border-color: var(--accent);
+  background: rgba(212,0,0,0.15);
+}
+
+.form-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.form-input::placeholder { color: rgba(255,255,255,0.3); }
+.form-input:focus { outline: none; border-color: var(--accent); }
+
+.checkout-error {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: #ff8a85;
+  margin-top: 4px;
+}
+
+#confirm-checkout {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-subtitle);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.12s;
+}
+
+#confirm-checkout:hover { opacity: 0.92; }
+#confirm-checkout:active { transform: scale(0.98); }
 
 .sheet-footer {
   padding: 16px 24px 28px;

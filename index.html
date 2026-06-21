@@ -19,7 +19,10 @@
         <h1 class="brand-name">NF Burgers</h1>
         <p class="brand-tagline">Especialistas en Smash Burgers</p>
         <div class="brand-meta">
-          <span class="badge">🕐 Lun–Dom · 19 a 23 hs</span>
+          <button id="status-badge" class="badge badge-status">
+            <span id="status-dot" class="status-dot"></span>
+            <span id="status-text">—</span>
+          </button>
           <span class="badge">📍 Munro</span>
         </div>
       </div>
@@ -42,6 +45,56 @@
     <div class="sheet-options" id="sheet-options"></div>
     <div class="sheet-footer">
       <button id="add-with-size" disabled>Elegí un tamaño</button>
+    </div>
+  </div>
+
+  <!-- SCHEDULE SHEET -->
+  <div id="schedule-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2>Horarios</h2>
+      <p id="schedule-current-status">—</p>
+    </div>
+    <div class="sheet-options" id="schedule-list"></div>
+    <div class="sheet-footer">
+      <button id="close-schedule" class="ghost-btn">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- CHECKOUT SHEET (pago / entrega / dirección) -->
+  <div id="checkout-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2>Antes de enviar</h2>
+      <p>Completá estos datos para tu pedido</p>
+    </div>
+    <div class="sheet-options">
+
+      <div class="form-group">
+        <label class="form-label">Método de pago</label>
+        <div class="pill-group" id="payment-group">
+          <button type="button" class="pill" data-value="Efectivo">💵 Efectivo</button>
+          <button type="button" class="pill" data-value="MercadoPago">📲 MercadoPago</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Entrega</label>
+        <div class="pill-group" id="delivery-group">
+          <button type="button" class="pill" data-value="Takeaway">🏠 Takeaway</button>
+          <button type="button" class="pill" data-value="Delivery">🛵 Delivery</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="address-group" style="display:none;">
+        <label class="form-label" for="address-input">Dirección de entrega</label>
+        <input type="text" id="address-input" class="form-input" placeholder="Calle, número, piso/depto, entre calles...">
+      </div>
+
+      <p id="checkout-error" class="checkout-error" style="display:none;"></p>
+    </div>
+    <div class="sheet-footer">
+      <button id="confirm-checkout">Confirmar y enviar</button>
     </div>
   </div>
 

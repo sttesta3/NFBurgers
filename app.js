@@ -7,14 +7,13 @@ const PRECIO_BEBIDA_CHICA = 2000;
 const PRECIO_BEBIDA_GRANDE = 5000;
 
 const sizeLabels = { simple: "Simple", doble: "Doble", triple: "Triple" };
-const sizeMeta   = { simple: "x1 carne smasheada", doble: "x2 carne smasheada", triple: "x3 carne smasheada" };
+const sizeMeta   = { simple: "1 medallón", doble: "2 medallones", triple: "3 medallones" };
 
 /* ─── MENÚ ────────────────────────────────────────
-   Categorías con acordeón, igual que antes.
-   La categoría "Hamburguesas" usa type: "sizes":
-   cada item tiene un objeto `sizes` (simple/doble/
-   triple) en vez de un `price` único. Al tocarla se
-   abre el panel para elegir el tamaño.
+   Categorías con acordeón. La categoría "Hamburguesas"
+   usa type: "sizes": cada item tiene `sizes` (simple/
+   doble/triple) en vez de `price`. Al tocarla se abre
+   el panel para elegir el tamaño.
    ─────────────────────────────────────────────── */
 const categories = [
   {
@@ -88,21 +87,113 @@ const categories = [
   },
 ];
 
+/* ─── HORARIOS ──────────────────────────────────
+   day: 0=Domingo … 6=Sábado (igual que Date.getDay()).
+   close menor o igual a open implica que cierra al
+   día siguiente (ej: Viernes 20:00 a 01:00hs).
+   ─────────────────────────────────────────────── */
+const schedule = [
+  { day: 1, label: "Lunes",     open: null,    close: null },
+  { day: 2, label: "Martes",    open: null,    close: null },
+  { day: 3, label: "Miércoles", open: null,    close: null },
+  { day: 4, label: "Jueves",    open: "20:00", close: "00:00" },
+  { day: 5, label: "Viernes",   open: "20:00", close: "01:00" },
+  { day: 6, label: "Sábado",    open: "20:00", close: "01:00" },
+  { day: 0, label: "Domingo",   open: "20:00", close: "00:00" },
+];
+
+function parseHM(str) {
+  const [h, m] = str.split(":").map(Number);
+  return { h, m };
+}
+
+function formatCloseLabel(open, close) {
+  const o = parseHM(open);
+  const c = parseHM(close);
+  const overnight = c.h < o.h || (c.h === o.h && c.m <= o.m) || close === "00:00";
+  return `${open} a ${close}hs${overnight ? " (del día siguiente)" : ""}`;
+}
+
+function isOpenNow(now = new Date()) {
+  for (const offset of [0, -1]) {
+    const base = new Date(now);
+    base.setDate(base.getDate() + offset);
+    const dayIndex = base.getDay();
+    const entry = schedule.find(s => s.day === dayIndex);
+    if (!entry || !entry.open) continue;
+
+    const o = parseHM(entry.open);
+    const c = parseHM(entry.close);
+
+    const start = new Date(base);
+    start.setHours(o.h, o.m, 0, 0);
+
+    const end = new Date(base);
+    end.setHours(c.h, c.m, 0, 0);
+    if (c.h < o.h || (c.h === o.h && c.m <= o.m)) {
+      end.setDate(end.getDate() + 1); // cierra al día siguiente
+    }
+
+    if (now >= start && now < end) return true;
+  }
+  return false;
+}
+
+function updateStatusBadge() {
+  const open = isOpenNow();
+  const dot  = document.getElementById("status-dot");
+  const text = document.getElementById("status-text");
+
+  dot.classList.toggle("open", open);
+  dot.classList.toggle("closed", !open);
+  text.textContent = open ? "Abierto ahora" : "Cerrado ahora";
+
+  const current = document.getElementById("schedule-current-status");
+  if (current) {
+    current.textContent = open
+      ? "Estamos aceptando pedidos en este momento."
+      : "En este momento no estamos aceptando pedidos.";
+  }
+}
+
+function renderSchedule() {
+  const listEl = document.getElementById("schedule-list");
+  const todayIndex = new Date().getDay();
+
+  listEl.innerHTML = schedule.map(entry => {
+    const isToday = entry.day === todayIndex;
+    const isClosed = !entry.open;
+    return `
+      <div class="schedule-row ${isToday ? "is-today" : ""} ${isClosed ? "is-closed" : ""}">
+        <span class="day-name">${entry.label}${isToday ? " · hoy" : ""}</span>
+        <span class="day-hours">${isClosed ? "Cerrado" : formatCloseLabel(entry.open, entry.close)}</span>
+      </div>
+    `;
+  }).join("");
+}
+
 /* ─── State ──────────────────────────────────────
    cart = [{ name, price, qty }, …]
    ─────────────────────────────────────────────── */
 const cart = [];
 let activeBurger = null;
 let selectedSize = null;
+let selectedPayment = null;
+let selectedDelivery = null;
 
 /* ─── DOM refs ──────────────────────────────────── */
-const menuEl       = document.getElementById("menu");
-const sizeSheet     = document.getElementById("size-sheet");
-const cartModal     = document.getElementById("cart-modal");
-const cartItemsEl   = document.getElementById("cart-items");
-const cartCountEl   = document.getElementById("cart-count");
-const cartTotalEl   = document.getElementById("cart-total");
-const overlay       = document.getElementById("overlay");
+const menuEl         = document.getElementById("menu");
+const sizeSheet       = document.getElementById("size-sheet");
+const scheduleSheet   = document.getElementById("schedule-sheet");
+const checkoutSheet   = document.getElementById("checkout-sheet");
+const cartModal       = document.getElementById("cart-modal");
+const cartItemsEl     = document.getElementById("cart-items");
+const cartCountEl     = document.getElementById("cart-count");
+const cartTotalEl     = document.getElementById("cart-total");
+const overlay         = document.getElementById("overlay");
+const addressGroup    = document.getElementById("address-group");
+const addressInput    = document.getElementById("address-input");
+const checkoutError   = document.getElementById("checkout-error");
 
 /* ─── Helpers ─────────────────────────────────── */
 function formatPrice(n) {
@@ -168,6 +259,41 @@ function animateCartIcon() {
   cartCountEl.classList.add("pop");
 }
 
+/* ─── History helper (botón "atrás" en mobile) ───
+   Cualquier panel (tamaño, horarios, checkout, carrito)
+   agrega un estado al historial al abrir, y lo consume
+   al cerrar, para que el botón/gesto "atrás" cierre el
+   panel en vez de salir de la página.
+   ─────────────────────────────────────────────── */
+let historyPushed = false;
+
+function pushHistoryState() {
+  if (!historyPushed) {
+    history.pushState({ panelOpen: true }, "");
+    historyPushed = true;
+  }
+}
+
+function popHistoryState(fromPopState) {
+  if (historyPushed) {
+    historyPushed = false;
+    if (!fromPopState) {
+      history.back();
+    }
+  }
+}
+
+function anyPanelOpen() {
+  return sizeSheet.classList.contains("open") ||
+         scheduleSheet.classList.contains("open") ||
+         checkoutSheet.classList.contains("open") ||
+         cartModal.classList.contains("open");
+}
+
+function hideOverlayIfNothingOpen() {
+  if (!anyPanelOpen()) overlay.classList.remove("show");
+}
+
 /* ─── Size sheet ─────────────────────────────── */
 function openSizeSheet(burger) {
   activeBurger = burger;
@@ -211,9 +337,7 @@ function openSizeSheet(burger) {
 
 function closeSizeSheet(fromPopState = false) {
   sizeSheet.classList.remove("open");
-  if (!cartModal.classList.contains("open")) {
-    overlay.classList.remove("show");
-  }
+  hideOverlayIfNothingOpen();
   popHistoryState(fromPopState);
 }
 
@@ -226,33 +350,25 @@ document.getElementById("add-with-size").addEventListener("click", () => {
   closeSizeSheet();
 });
 
-/* ─── Open / close cart ─────────────────────────
-   En mobile, el botón/gesto "atrás" del navegador
-   sale de la página entera si no hay un estado de
-   historial que cerrar primero. Para evitar que el
-   usuario quede "atrapado" en el carrito o en el
-   panel de tamaño, agregamos un estado al historial
-   al abrir cualquiera de los dos, y lo consumimos
-   al cerrar.
-   ─────────────────────────────────────────────── */
-let historyPushed = false;
-
-function pushHistoryState() {
-  if (!historyPushed) {
-    history.pushState({ panelOpen: true }, "");
-    historyPushed = true;
-  }
+/* ─── Schedule sheet ──────────────────────────── */
+function openSchedule() {
+  renderSchedule();
+  updateStatusBadge();
+  scheduleSheet.classList.add("open");
+  overlay.classList.add("show");
+  pushHistoryState();
 }
 
-function popHistoryState(fromPopState) {
-  if (historyPushed) {
-    historyPushed = false;
-    if (!fromPopState) {
-      history.back();
-    }
-  }
+function closeSchedule(fromPopState = false) {
+  scheduleSheet.classList.remove("open");
+  hideOverlayIfNothingOpen();
+  popHistoryState(fromPopState);
 }
 
+document.getElementById("status-badge").addEventListener("click", openSchedule);
+document.getElementById("close-schedule").addEventListener("click", () => closeSchedule());
+
+/* ─── Cart ───────────────────────────────────── */
 function openCart() {
   cartModal.classList.add("open");
   overlay.classList.add("show");
@@ -262,9 +378,7 @@ function openCart() {
 
 function closeCart(fromPopState = false) {
   cartModal.classList.remove("open");
-  if (!sizeSheet.classList.contains("open")) {
-    overlay.classList.remove("show");
-  }
+  hideOverlayIfNothingOpen();
   document.body.style.overflow = "";
   popHistoryState(fromPopState);
 }
@@ -272,28 +386,107 @@ function closeCart(fromPopState = false) {
 document.getElementById("cart-icon").addEventListener("click", openCart);
 document.getElementById("close-cart").addEventListener("click", () => closeCart());
 
-overlay.addEventListener("click", () => {
-  if (sizeSheet.classList.contains("open")) closeSizeSheet();
-  if (cartModal.classList.contains("open")) closeCart();
-});
+/* ─── Checkout sheet (pago / entrega / dirección) ─
+   Se abre al tocar "Enviar por WhatsApp" en el carrito,
+   en vez de mandar el mensaje directo.
+   ─────────────────────────────────────────────── */
+function openCheckout() {
+  closeCart(); // el carrito se cierra y el checkout toma su lugar
 
-// Botón/gesto "atrás" del navegador (mobile) cierra el panel abierto
-// en vez de salir de la página.
-window.addEventListener("popstate", () => {
-  if (sizeSheet.classList.contains("open")) {
-    closeSizeSheet(true);
-  } else if (cartModal.classList.contains("open")) {
-    closeCart(true);
-  }
-});
+  selectedPayment = null;
+  selectedDelivery = null;
+  addressInput.value = "";
+  addressGroup.style.display = "none";
+  checkoutError.style.display = "none";
 
-/* ─── Send to WhatsApp ────────────────────────── */
+  document.querySelectorAll("#payment-group .pill").forEach(p => p.classList.remove("selected"));
+  document.querySelectorAll("#delivery-group .pill").forEach(p => p.classList.remove("selected"));
+
+  checkoutSheet.classList.add("open");
+  overlay.classList.add("show");
+  pushHistoryState();
+}
+
+function closeCheckout(fromPopState = false) {
+  checkoutSheet.classList.remove("open");
+  hideOverlayIfNothingOpen();
+  popHistoryState(fromPopState);
+}
+
 document.getElementById("send-order").addEventListener("click", () => {
   if (cart.length === 0) {
     alert("No hay productos en el pedido.");
     return;
   }
+  openCheckout();
+});
 
+document.querySelectorAll("#payment-group .pill").forEach(pill => {
+  pill.addEventListener("click", () => {
+    document.querySelectorAll("#payment-group .pill").forEach(p => p.classList.remove("selected"));
+    pill.classList.add("selected");
+    selectedPayment = pill.dataset.value;
+    checkoutError.style.display = "none";
+  });
+});
+
+document.querySelectorAll("#delivery-group .pill").forEach(pill => {
+  pill.addEventListener("click", () => {
+    document.querySelectorAll("#delivery-group .pill").forEach(p => p.classList.remove("selected"));
+    pill.classList.add("selected");
+    selectedDelivery = pill.dataset.value;
+    addressGroup.style.display = selectedDelivery === "Delivery" ? "block" : "none";
+    checkoutError.style.display = "none";
+  });
+});
+
+document.getElementById("confirm-checkout").addEventListener("click", () => {
+  if (!selectedPayment) {
+    checkoutError.textContent = "Elegí un método de pago.";
+    checkoutError.style.display = "block";
+    return;
+  }
+  if (!selectedDelivery) {
+    checkoutError.textContent = "Elegí si es Takeaway o Delivery.";
+    checkoutError.style.display = "block";
+    return;
+  }
+  if (selectedDelivery === "Delivery" && addressInput.value.trim() === "") {
+    checkoutError.textContent = "Ingresá la dirección de entrega.";
+    checkoutError.style.display = "block";
+    addressInput.focus();
+    return;
+  }
+
+  sendOrderToWhatsApp();
+  closeCheckout();
+});
+
+/* ─── Botón/gesto "atrás" del navegador (mobile) ─
+   Cierra el panel que esté abierto en vez de salir
+   de la página.
+   ─────────────────────────────────────────────── */
+window.addEventListener("popstate", () => {
+  if (sizeSheet.classList.contains("open")) {
+    closeSizeSheet(true);
+  } else if (scheduleSheet.classList.contains("open")) {
+    closeSchedule(true);
+  } else if (checkoutSheet.classList.contains("open")) {
+    closeCheckout(true);
+  } else if (cartModal.classList.contains("open")) {
+    closeCart(true);
+  }
+});
+
+overlay.addEventListener("click", () => {
+  if (sizeSheet.classList.contains("open")) closeSizeSheet();
+  else if (scheduleSheet.classList.contains("open")) closeSchedule();
+  else if (checkoutSheet.classList.contains("open")) closeCheckout();
+  else if (cartModal.classList.contains("open")) closeCart();
+});
+
+/* ─── Send to WhatsApp ────────────────────────── */
+function sendOrderToWhatsApp() {
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
   let msg = "Hola! Quiero hacer este pedido 🍔%0A%0A";
@@ -302,11 +495,19 @@ document.getElementById("send-order").addEventListener("click", () => {
   });
   msg += `%0A*Total: ${formatPrice(totalPrice)}*`;
 
+  msg += `%0A%0A💳 Pago: ${selectedPayment}`;
+  msg += `%0A🛍️ Entrega: ${selectedDelivery}`;
+  if (selectedDelivery === "Delivery") {
+    msg += `%0A📍 Dirección: ${encodeURIComponent(addressInput.value.trim())}`;
+  }
+
   const phone = "5491168461341";
   window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
 
-  closeCart();
-});
+  // Limpiar carrito después de enviar
+  cart.length = 0;
+  updateCart();
+}
 
 /* ─── Render menú (acordeón) ───────────────────
    Las categorías normales muestran precio + botón "+".
@@ -334,7 +535,7 @@ function renderMenu() {
               <p>${item.description}</p>
             </div>
             <div class="item-right">
-              <span class="price-from">${formatPrice(item.sizes.simple)}</span>
+              <span class="price-from">desde ${formatPrice(item.sizes.simple)}</span>
               <div class="burger-chevron">›</div>
             </div>
           </div>
@@ -365,7 +566,6 @@ function renderMenu() {
     });
 
     if (isSizeCategory) {
-      /* Tocar la hamburguesa abre el panel de tamaño */
       section.querySelectorAll(".item-burger").forEach((row, idx) => {
         row.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -373,7 +573,6 @@ function renderMenu() {
         });
       });
     } else {
-      /* Botón "+" agrega directo, como antes */
       section.querySelectorAll(".add-btn").forEach((btn, idx) => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -385,3 +584,5 @@ function renderMenu() {
 }
 
 renderMenu();
+updateStatusBadge();
+setInterval(updateStatusBadge, 60000); // refresca cada minuto
