@@ -180,6 +180,7 @@ let activeBurger = null;
 let selectedSize = null;
 let selectedPayment = null;
 let selectedDelivery = null;
+let customerName = "";
 
 /* ─── DOM refs ──────────────────────────────────── */
 const menuEl         = document.getElementById("menu");
@@ -193,6 +194,7 @@ const cartTotalEl     = document.getElementById("cart-total");
 const overlay         = document.getElementById("overlay");
 const addressGroup    = document.getElementById("address-group");
 const addressInput    = document.getElementById("address-input");
+const customerNameInput = document.getElementById("customer-name-input");
 const checkoutError   = document.getElementById("checkout-error");
 
 /* ─── Helpers ─────────────────────────────────── */
@@ -395,6 +397,7 @@ function openCheckout() {
 
   selectedPayment = null;
   selectedDelivery = null;
+  customerNameInput.value = "";
   addressInput.value = "";
   addressGroup.style.display = "none";
   checkoutError.style.display = "none";
@@ -441,6 +444,12 @@ document.querySelectorAll("#delivery-group .pill").forEach(pill => {
 });
 
 document.getElementById("confirm-checkout").addEventListener("click", () => {
+  if (customerNameInput.value.trim() === "") {
+    checkoutError.textContent = "Ingresá tu nombre.";
+    checkoutError.style.display = "block";
+    customerNameInput.focus();
+    return;
+  }
   if (!selectedPayment) {
     checkoutError.textContent = "Elegí un método de pago.";
     checkoutError.style.display = "block";
@@ -487,9 +496,11 @@ overlay.addEventListener("click", () => {
 
 /* ─── Send to WhatsApp ────────────────────────── */
 function sendOrderToWhatsApp() {
+  customerName = customerNameInput.value.trim();
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
-  let msg = "Hola! Quiero hacer este pedido 🍔%0A%0A";
+  let msg = "Hola! Quiero hacer este pedido 🍔%0A";
+  msg += `*Nombre: ${customerName}*%0A%0A`;
   cart.forEach(item => {
     msg += `• ${item.qty}x ${item.name} — ${formatPrice(item.price * item.qty)}%0A`;
   });
