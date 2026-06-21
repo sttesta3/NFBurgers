@@ -425,7 +425,8 @@ body {
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 
-#add-with-size {
+#add-with-size,
+#add-with-notes {
   width: 100%;
   padding: 16px;
   border: none;
@@ -440,8 +441,12 @@ body {
   transition: opacity 0.15s, transform 0.12s;
 }
 
-#add-with-size:hover { opacity: 0.92; }
-#add-with-size:active { transform: scale(0.98); }
+#add-with-size:hover,
+#add-with-notes:hover { opacity: 0.92; }
+
+#add-with-size:active,
+#add-with-notes:active { transform: scale(0.98); }
+
 #add-with-size:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ─── CATEGORIES ───────────────────────────────── */
