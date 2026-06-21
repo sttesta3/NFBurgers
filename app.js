@@ -7,7 +7,7 @@ const PRECIO_BEBIDA_CHICA = 2000;
 const PRECIO_BEBIDA_GRANDE = 5000;
 
 const sizeLabels = { simple: "Simple", doble: "Doble", triple: "Triple" };
-const sizeMeta   = { simple: "1 medallón", doble: "2 medallones", triple: "3 medallones" };
+const sizeMeta   = { simple: "x1 carne smasheada", doble: "x2 carne smasheada", triple: "x3 carne smasheada" };
 
 /* ─── MENÚ ────────────────────────────────────────
    Categorías con acordeón. La categoría "Hamburguesas"
@@ -393,7 +393,15 @@ document.getElementById("close-cart").addEventListener("click", () => closeCart(
    en vez de mandar el mensaje directo.
    ─────────────────────────────────────────────── */
 function openCheckout() {
-  closeCart(); // el carrito se cierra y el checkout toma su lugar
+  // Cerramos el carrito visualmente sin tocar el historial:
+  // el checkout reutiliza el mismo estado que ya empujamos
+  // al abrir el carrito. Si acá llamáramos a closeCart() (que
+  // hace history.back()) y enseguida abriéramos el checkout
+  // (que hace pushHistoryState()), el history.back() es async
+  // y en mobile el popstate llega después de abrir el checkout,
+  // cerrándolo al instante.
+  cartModal.classList.remove("open");
+  document.body.style.overflow = "";
 
   selectedPayment = null;
   selectedDelivery = null;
@@ -407,7 +415,7 @@ function openCheckout() {
 
   checkoutSheet.classList.add("open");
   overlay.classList.add("show");
-  pushHistoryState();
+  pushHistoryState(); // no-op si ya había un estado empujado por el carrito
 }
 
 function closeCheckout(fromPopState = false) {
