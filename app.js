@@ -7,7 +7,6 @@ const PRECIO_BEBIDA_CHICA = 2000;
 const PRECIO_BEBIDA_GRANDE = 5000;
 
 const sizeLabels = { simple: "Simple", doble: "Doble", triple: "Triple" };
-const sizeMeta   = { simple: "x1 carne smasheada", doble: "x2 carne smasheada", triple: "x3 carne smasheada" };
 
 /* ─── MENÚ ────────────────────────────────────────
    Categorías con acordeón. La categoría "Hamburguesas"
@@ -81,6 +80,7 @@ const categories = [
   },
   {
     name: "Adicionales",
+    type: "notes",
     items: [
       { name: "Papas fritas", description: "Papas fritas", price: 2000 },
     ]
@@ -177,6 +177,7 @@ function renderSchedule() {
    ─────────────────────────────────────────────── */
 const cart = [];
 let activeBurger = null;
+let activeNotesItem = null;
 let selectedSize = null;
 let selectedPayment = null;
 let selectedDelivery = null;
@@ -185,6 +186,7 @@ let customerName = "";
 /* ─── DOM refs ──────────────────────────────────── */
 const menuEl         = document.getElementById("menu");
 const sizeSheet       = document.getElementById("size-sheet");
+const notesSheet      = document.getElementById("notes-sheet");
 const scheduleSheet   = document.getElementById("schedule-sheet");
 const checkoutSheet   = document.getElementById("checkout-sheet");
 const cartModal       = document.getElementById("cart-modal");
@@ -196,31 +198,48 @@ const addressGroup    = document.getElementById("address-group");
 const addressInput    = document.getElementById("address-input");
 const customerNameInput = document.getElementById("customer-name-input");
 const checkoutError   = document.getElementById("checkout-error");
+const burgerNotesInput = document.getElementById("burger-notes-input");
+const itemNotesInput   = document.getElementById("item-notes-input");
 
 /* ─── Helpers ─────────────────────────────────── */
 function formatPrice(n) {
   return "$" + n.toLocaleString("es-AR");
 }
 
-function findInCart(name) {
-  return cart.find(i => i.name === name);
+function escapeHTML(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* Cada renglón del carrito se identifica por nombre + aclaración,
+   así "CheeseBurger (Simple)" con notas distintas no se mezcla,
+   pero la misma combinación suma cantidad en vez de duplicarse. */
+function makeCartKey(name, notes) {
+  return `${name}__${notes || ""}`;
+}
+
+function findInCart(key) {
+  return cart.find(i => i.key === key);
 }
 
 /* ─── Add to cart ─────────────────────────────── */
 function addItem(item) {
-  const existing = findInCart(item.name);
+  const notes = (item.notes || "").trim();
+  const key = makeCartKey(item.name, notes);
+  const existing = findInCart(key);
   if (existing) {
     existing.qty++;
   } else {
-    cart.push({ ...item, qty: 1 });
+    cart.push({ key, name: item.name, price: item.price, notes, qty: 1 });
   }
   updateCart();
   animateCartIcon();
 }
 
-/* ─── Remove one unit (or item) ──────────────────*/
-function removeItem(name) {
-  const idx = cart.findIndex(i => i.name === name);
+/* ─── Remove one unit (o el ítem entero) ─────────*/
+function removeItem(key) {
+  const idx = cart.findIndex(i => i.key === key);
   if (idx === -1) return;
   cart[idx].qty--;
   if (cart[idx].qty === 0) cart.splice(idx, 1);
@@ -248,10 +267,17 @@ function updateCart() {
       <div class="cart-item-info">
         <h4>${item.name}</h4>
         <p>${formatPrice(item.price * item.qty)}</p>
+        ${item.notes ? `<p class="cart-item-notes">"${escapeHTML(item.notes)}"</p>` : ""}
       </div>
-      <button class="remove-btn" onclick="removeItem('${item.name.replace(/'/g,"\\'")}')">×</button>
+      <button class="remove-btn" data-key="${encodeURIComponent(item.key)}">×</button>
     </div>
   `).join("");
+
+  cartItemsEl.querySelectorAll(".remove-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      removeItem(decodeURIComponent(btn.dataset.key));
+    });
+  });
 }
 
 /* ─── Cart icon bounce ────────────────────────── */
@@ -287,6 +313,7 @@ function popHistoryState(fromPopState) {
 
 function anyPanelOpen() {
   return sizeSheet.classList.contains("open") ||
+         notesSheet.classList.contains("open") ||
          scheduleSheet.classList.contains("open") ||
          checkoutSheet.classList.contains("open") ||
          cartModal.classList.contains("open");
@@ -309,10 +336,7 @@ function openSizeSheet(burger) {
     .filter(([, price]) => price !== null)
     .map(([key, price]) => `
       <div class="size-option" data-size="${key}">
-        <div>
-          <div class="size-name">${sizeLabels[key]}</div>
-          <div class="size-meta">${sizeMeta[key]}</div>
-        </div>
+        <div class="size-name">${sizeLabels[key]}</div>
         <div class="size-price">${formatPrice(price)}</div>
       </div>
     `).join("");
@@ -332,6 +356,8 @@ function openSizeSheet(burger) {
   addBtn.disabled = true;
   addBtn.textContent = "Elegí un tamaño";
 
+  burgerNotesInput.value = "";
+
   sizeSheet.classList.add("open");
   overlay.classList.add("show");
   pushHistoryState();
@@ -347,9 +373,38 @@ document.getElementById("add-with-size").addEventListener("click", () => {
   if (!selectedSize) return;
   addItem({
     name: `${activeBurger.name} (${sizeLabels[selectedSize]})`,
-    price: activeBurger.sizes[selectedSize]
+    price: activeBurger.sizes[selectedSize],
+    notes: burgerNotesInput.value
   });
   closeSizeSheet();
+});
+
+/* ─── Notes sheet (para items sin tamaño, ej. Papas fritas) ─── */
+function openNotesSheet(item) {
+  activeNotesItem = item;
+  itemNotesInput.value = "";
+
+  document.getElementById("notes-item-name").textContent = item.name;
+  document.getElementById("notes-item-price").textContent = formatPrice(item.price);
+
+  notesSheet.classList.add("open");
+  overlay.classList.add("show");
+  pushHistoryState();
+}
+
+function closeNotesSheet(fromPopState = false) {
+  notesSheet.classList.remove("open");
+  hideOverlayIfNothingOpen();
+  popHistoryState(fromPopState);
+}
+
+document.getElementById("add-with-notes").addEventListener("click", () => {
+  addItem({
+    name: activeNotesItem.name,
+    price: activeNotesItem.price,
+    notes: itemNotesInput.value
+  });
+  closeNotesSheet();
 });
 
 /* ─── Schedule sheet ──────────────────────────── */
@@ -486,6 +541,8 @@ document.getElementById("confirm-checkout").addEventListener("click", () => {
 window.addEventListener("popstate", () => {
   if (sizeSheet.classList.contains("open")) {
     closeSizeSheet(true);
+  } else if (notesSheet.classList.contains("open")) {
+    closeNotesSheet(true);
   } else if (scheduleSheet.classList.contains("open")) {
     closeSchedule(true);
   } else if (checkoutSheet.classList.contains("open")) {
@@ -497,6 +554,7 @@ window.addEventListener("popstate", () => {
 
 overlay.addEventListener("click", () => {
   if (sizeSheet.classList.contains("open")) closeSizeSheet();
+  else if (notesSheet.classList.contains("open")) closeNotesSheet();
   else if (scheduleSheet.classList.contains("open")) closeSchedule();
   else if (checkoutSheet.classList.contains("open")) closeCheckout();
   else if (cartModal.classList.contains("open")) closeCart();
@@ -511,6 +569,9 @@ function sendOrderToWhatsApp() {
   msg += `*Nombre: ${customerName}*%0A%0A`;
   cart.forEach(item => {
     msg += `• ${item.qty}x ${item.name} — ${formatPrice(item.price * item.qty)}%0A`;
+    if (item.notes) {
+      msg += `   ↳ _${encodeURIComponent(item.notes)}_%0A`;
+    }
   });
   msg += `%0A*Total: ${formatPrice(totalPrice)}*`;
 
@@ -540,6 +601,8 @@ function renderMenu() {
     section.classList.add("category");
 
     const isSizeCategory = category.type === "sizes";
+    const isNotesCategory = category.type === "notes";
+    const isClickRow = isSizeCategory || isNotesCategory;
 
     section.innerHTML = `
       <button class="category-header" aria-expanded="false">
@@ -555,6 +618,17 @@ function renderMenu() {
             </div>
             <div class="item-right">
               <span class="price-from">desde ${formatPrice(item.sizes.simple)}</span>
+              <div class="burger-chevron">›</div>
+            </div>
+          </div>
+        ` : isNotesCategory ? `
+          <div class="item item-burger" data-cat="${catIdx}" data-item="${itemIdx}">
+            <div class="item-info">
+              <h3>${item.name}</h3>
+              <p>${item.description}</p>
+            </div>
+            <div class="item-right">
+              <span class="price-from">${formatPrice(item.price)}</span>
               <div class="burger-chevron">›</div>
             </div>
           </div>
@@ -589,6 +663,13 @@ function renderMenu() {
         row.addEventListener("click", (e) => {
           e.stopPropagation();
           openSizeSheet(category.items[idx]);
+        });
+      });
+    } else if (isNotesCategory) {
+      section.querySelectorAll(".item-burger").forEach((row, idx) => {
+        row.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openNotesSheet(category.items[idx]);
         });
       });
     } else {

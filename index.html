@@ -43,8 +43,32 @@
       <p id="sheet-burger-desc">—</p>
     </div>
     <div class="sheet-options" id="sheet-options"></div>
+    <div class="sheet-options sheet-options-tight">
+      <div class="form-group">
+        <label class="form-label" for="burger-notes-input">Aclaraciones (opcional)</label>
+        <textarea id="burger-notes-input" class="form-input form-textarea" placeholder="Sin sal, sin tomate, bien cocida, etc."></textarea>
+      </div>
+    </div>
     <div class="sheet-footer">
       <button id="add-with-size" disabled>Elegí un tamaño</button>
+    </div>
+  </div>
+
+  <!-- NOTES SHEET (para adicionales, ej. papas fritas) -->
+  <div id="notes-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 id="notes-item-name">—</h2>
+      <p id="notes-item-price">—</p>
+    </div>
+    <div class="sheet-options">
+      <div class="form-group">
+        <label class="form-label" for="item-notes-input">Aclaraciones (opcional)</label>
+        <textarea id="item-notes-input" class="form-input form-textarea" placeholder="Sin sal, bien crocantes, etc."></textarea>
+      </div>
+    </div>
+    <div class="sheet-footer">
+      <button id="add-with-notes">Agregar</button>
     </div>
   </div>
 
