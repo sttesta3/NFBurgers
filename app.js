@@ -138,6 +138,98 @@ function isOpenNow(now = new Date()) {
   return false;
 }
 
+/* ─── TURNOS DE ENTREGA ──────────────────────────
+   Jueves y Domingo: 20-21, 21-22, 22-23, 23-00
+   Viernes y Sábado: 20-21, 21-22, 22-23, 23-00, 00-01
+   Un turno está "pasado" si su hora de cierre ya pasó.
+   La franja 00-01 es de la madrugada del día siguiente.
+   ─────────────────────────────────────────────── */
+const slotsByDayType = {
+  short: ["20-21","21-22","22-23","23-00"],           // Jue / Dom
+  long:  ["20-21","21-22","22-23","23-00","00-01"],   // Vie / Sáb
+};
+
+const openDays = {
+  0: "short",  // Domingo
+  4: "short",  // Jueves
+  5: "long",   // Viernes
+  6: "long",   // Sábado
+};
+
+function getSlotsForToday(now = new Date()) {
+  const today = now.getDay();
+
+  // Caso especial: si son las 00:xx o 01:xx del sábado/domingo,
+  // los turnos que aplican son los del día anterior (Vie/Sáb).
+  const hour = now.getHours();
+  if ((hour === 0 || hour < 2) && (today === 6 || today === 0)) {
+    const prevDay = today === 0 ? 6 : 5; // dom→sáb, sáb→vie
+    const type = openDays[prevDay];
+    if (type) return buildSlots(now, slotsByDayType[type], true);
+  }
+
+  const type = openDays[today];
+  if (!type) return null; // día cerrado
+  return buildSlots(now, slotsByDayType[type], false);
+}
+
+/* Convierte las franjas string en objetos con estado */
+function buildSlots(now, labels, overnight) {
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+
+  return labels.map(label => {
+    const [startStr, endStr] = label.split("-");
+    const startH = parseInt(startStr, 10);
+    const endH   = parseInt(endStr, 10);
+
+    // Minutos desde medianoche para comparar con nowMins
+    const startMins = startH * 60;
+    // Turno 00-01 o 23-00: el cierre es al día siguiente / medianoche
+    const endMins = endH === 0 ? 24 * 60 :
+                    endH < startH ? (24 + endH) * 60 :
+                    endH * 60;
+
+    // Si estamos en la madrugada (overnight), nowMins se refiere
+    // a la hora real (0-60 min). Comparamos contra endMins que ya
+    // tiene los turnos de madrugada ajustados (> 1440).
+    const effectiveNow = overnight ? nowMins + 24 * 60 : nowMins;
+    const past = effectiveNow >= endMins;
+
+    return { label, past };
+  });
+}
+
+function renderSlots(now = new Date()) {
+  const slots = getSlotsForToday(now);
+
+  if (!slots) {
+    slotGroup.innerHTML = "";
+    slotHint.textContent = "";
+    return;
+  }
+
+  const allPast = slots.every(s => s.past);
+  slotHint.textContent = "";
+
+  slotGroup.innerHTML = slots.map(s => `
+    <button
+      type="button"
+      class="slot-btn${s.past ? " past" : ""}"
+      data-slot="${s.label}"
+      ${s.past ? "disabled" : ""}
+    >${s.label}hs</button>
+  `).join("");
+
+  slotGroup.querySelectorAll(".slot-btn:not(:disabled)").forEach(btn => {
+    btn.addEventListener("click", () => {
+      slotGroup.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedSlot = btn.dataset.slot;
+      checkoutError.style.display = "none";
+    });
+  });
+}
+
 function updateStatusBadge() {
   const open = isOpenNow();
   const dot  = document.getElementById("status-dot");
@@ -179,7 +271,7 @@ let activeBurger = null;
 let activeNotesItem = null;
 let selectedSize = null;
 let selectedPayment = null;
-let selectedDelivery = null;
+let selectedSlot = null;     // turno de entrega elegido, ej "20-21"
 let customerName = "";
 
 /* ─── DOM refs ──────────────────────────────────── */
@@ -193,12 +285,13 @@ const cartItemsEl     = document.getElementById("cart-items");
 const cartCountEl     = document.getElementById("cart-count");
 const cartTotalEl     = document.getElementById("cart-total");
 const overlay         = document.getElementById("overlay");
-const addressGroup    = document.getElementById("address-group");
 const addressInput    = document.getElementById("address-input");
 const customerNameInput = document.getElementById("customer-name-input");
 const checkoutError   = document.getElementById("checkout-error");
 const burgerNotesInput = document.getElementById("burger-notes-input");
 const itemNotesInput   = document.getElementById("item-notes-input");
+const slotGroup        = document.getElementById("slot-group");
+const slotHint         = document.getElementById("slot-hint");
 
 /* ─── Helpers ─────────────────────────────────── */
 function formatPrice(n) {
@@ -458,14 +551,14 @@ function openCheckout() {
   document.body.style.overflow = "";
 
   selectedPayment = null;
-  selectedDelivery = null;
+  selectedSlot = null;
   customerNameInput.value = "";
   addressInput.value = "";
-  addressGroup.style.display = "none";
   checkoutError.style.display = "none";
 
   document.querySelectorAll("#payment-group .pill").forEach(p => p.classList.remove("selected"));
-  document.querySelectorAll("#delivery-group .pill").forEach(p => p.classList.remove("selected"));
+
+  renderSlots(); // genera turnos del día con los que ya pasaron grisados
 
   checkoutSheet.classList.add("open");
   overlay.classList.add("show");
@@ -495,16 +588,6 @@ document.querySelectorAll("#payment-group .pill").forEach(pill => {
   });
 });
 
-document.querySelectorAll("#delivery-group .pill").forEach(pill => {
-  pill.addEventListener("click", () => {
-    document.querySelectorAll("#delivery-group .pill").forEach(p => p.classList.remove("selected"));
-    pill.classList.add("selected");
-    selectedDelivery = pill.dataset.value;
-    addressGroup.style.display = selectedDelivery === "Delivery" ? "block" : "none";
-    checkoutError.style.display = "none";
-  });
-});
-
 document.getElementById("confirm-checkout").addEventListener("click", () => {
   if (customerNameInput.value.trim() === "") {
     checkoutError.textContent = "Ingresá tu nombre.";
@@ -517,12 +600,12 @@ document.getElementById("confirm-checkout").addEventListener("click", () => {
     checkoutError.style.display = "block";
     return;
   }
-  if (!selectedDelivery) {
-    checkoutError.textContent = "Elegí si es Takeaway o Delivery.";
+  if (!selectedSlot) {
+    checkoutError.textContent = "Elegí un turno de entrega.";
     checkoutError.style.display = "block";
     return;
   }
-  if (selectedDelivery === "Delivery" && addressInput.value.trim() === "") {
+  if (addressInput.value.trim() === "") {
     checkoutError.textContent = "Ingresá la dirección de entrega.";
     checkoutError.style.display = "block";
     addressInput.focus();
@@ -575,10 +658,8 @@ function sendOrderToWhatsApp() {
   msg += `%0A*Total: ${formatPrice(totalPrice)}*`;
 
   msg += `%0A%0A💳 Pago: ${selectedPayment}`;
-  msg += `%0A🛍️ Entrega: ${selectedDelivery}`;
-  if (selectedDelivery === "Delivery") {
-    msg += `%0A📍 Dirección: ${encodeURIComponent(addressInput.value.trim())}`;
-  }
+  msg += `%0A🕐 Turno: ${selectedSlot}hs`;
+  msg += `%0A📍 Dirección: ${encodeURIComponent(addressInput.value.trim())}`;
 
   const phone = "5491168461341";
   window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
