@@ -110,8 +110,7 @@ function parseHM(str) {
 function formatCloseLabel(open, close) {
   const o = parseHM(open);
   const c = parseHM(close);
-  const overnight = c.h < o.h || (c.h === o.h && c.m <= o.m) || close === "00:00";
-  return `${open} a ${close}hs${overnight ? " (del día siguiente)" : ""}`;
+  return `${open} a ${close}hs`;
 }
 
 function isOpenNow(now = new Date()) {
