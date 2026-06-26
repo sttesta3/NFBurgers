@@ -23,7 +23,7 @@
             <span id="status-dot" class="status-dot"></span>
             <span id="status-text">—</span>
           </button>
-          <span class="badge">📍 Munro</span>
+          <span class="badge">📍 Villa Adelina</span>
         </div>
       </div>
     </div>
@@ -103,19 +103,17 @@
         <label class="form-label">Método de pago</label>
         <div class="pill-group" id="payment-group">
           <button type="button" class="pill" data-value="Efectivo">💵 Efectivo</button>
-          <button type="button" class="pill" data-value="MercadoPago">📲 MercadoPago</button>
+          <button type="button" class="pill" data-value="Transferencia">💲 Transferencia</button>
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Entrega</label>
-        <div class="pill-group" id="delivery-group">
-          <button type="button" class="pill" data-value="Takeaway">🏠 Takeaway</button>
-          <button type="button" class="pill" data-value="Delivery">🛵 Delivery</button>
-        </div>
+        <label class="form-label">Turno de entrega</label>
+        <div class="slot-grid" id="slot-group"></div>
+        <p id="slot-hint" class="slot-hint"></p>
       </div>
 
-      <div class="form-group" id="address-group" style="display:none;">
+      <div class="form-group">
         <label class="form-label" for="address-input">Dirección de entrega</label>
         <input type="text" id="address-input" class="form-input" placeholder="Calle, número, piso/depto, entre calles...">
       </div>
