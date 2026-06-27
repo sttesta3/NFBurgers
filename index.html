@@ -31,8 +31,78 @@
 
   <!-- MENU -->
   <div class="container">
+    <div id="opening-banner" style="display:none;">
+      <button class="opening-btn" id="open-promo-sheet">
+        <div class="opening-btn-left">
+          <span class="opening-label">🎉 Edición apertura</span>
+          <span class="opening-title">Promo Apertura</span>
+          <span class="opening-desc">2× CheeseBurger Doble · 2× Coca · 2× Papas</span>
+        </div>
+        <div class="opening-price">$12.000</div>
+      </button>
+    </div>
     <p class="menu-label">— Menú</p>
     <main id="menu"></main>
+  </div>
+
+  <!-- PROMO SHEET -->
+  <div id="promo-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2>Promo de Apertura</h2>
+      <p>Edición especial — primer servicio</p>
+    </div>
+    <div class="sheet-options promo-options">
+
+      <!-- PROMO BLOCK -->
+      <div class="promo-block">
+        <div class="promo-block-top">
+          <div>
+            <div class="promo-block-title">Promo Apertura 🎉</div>
+            <div class="promo-block-desc">2× CheeseBurger Doble · 2× Coca Cola · 2× Papas fritas</div>
+            <div class="promo-block-price">$12.000 c/u</div>
+          </div>
+        </div>
+        <div class="qty-stepper">
+          <button class="qty-btn" id="promo-minus">−</button>
+          <span class="qty-value" id="promo-qty-val">0</span>
+          <button class="qty-btn" id="promo-plus">+</button>
+        </div>
+        <p class="promo-max-hint">Máximo 2 promos por pedido</p>
+      </div>
+
+      <!-- EXTRA BURGER BLOCK -->
+      <div class="promo-block">
+        <div class="promo-block-title">CheeseBurger Extra</div>
+        <div class="promo-block-desc">Elegí el tamaño — máximo 2 por pedido</div>
+        <div class="promo-size-row" id="extra-size-group">
+          <button type="button" class="promo-size-btn" data-size="simple" data-price="12000">
+            <span class="promo-size-name">Simple</span>
+            <span class="promo-size-price">$12.000</span>
+          </button>
+          <button type="button" class="promo-size-btn" data-size="doble" data-price="15000">
+            <span class="promo-size-name">Doble</span>
+            <span class="promo-size-price">$15.000</span>
+          </button>
+          <button type="button" class="promo-size-btn" data-size="triple" data-price="18000">
+            <span class="promo-size-name">Triple</span>
+            <span class="promo-size-price">$18.000</span>
+          </button>
+        </div>
+        <div class="qty-stepper">
+          <button class="qty-btn" id="extra-minus" disabled>−</button>
+          <span class="qty-value" id="extra-qty-val">0</span>
+          <button class="qty-btn" id="extra-plus" disabled>+</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="sheet-footer">
+      <div class="promo-subtotal" id="promo-subtotal" style="display:none;">
+        Subtotal: <strong id="promo-subtotal-val">$0</strong>
+      </div>
+      <button id="add-promo-btn" disabled>Seleccioná al menos una opción</button>
+    </div>
   </div>
 
   <!-- SIZE SELECTOR SHEET -->
