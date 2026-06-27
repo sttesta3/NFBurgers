@@ -878,7 +878,7 @@ function initPromoSheet() {
       if (existing) {
         existing.qty += promoQty;
       } else {
-        cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: "2× Cheese Doble · 2× Coca · 2× Papas", qty: promoQty });
+        cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: "×2 CheeseBurger Doble · 2× Coca · 2× Papas", qty: promoQty });
       }
     }
     if (extraQty > 0 && extraSize) {

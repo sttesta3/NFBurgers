@@ -911,7 +911,7 @@ body {
 
 .opening-btn:active { opacity: 0.9; transform: scale(0.99); }
 
-.opening-btn-left { display: flex; flex-direction: column; gap: 4px; }
+.opening-btn-left { display: flex; flex-direction: column; gap: 14px; }
 
 .opening-label {
   font-family: var(--font-subtitle);
@@ -934,6 +934,7 @@ body {
   font-size: 12px;
   color: rgba(255,255,255,0.8);
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 .opening-price {
@@ -1125,4 +1126,7 @@ body {
   .hero-inner { gap: 20px; }
   .logo-img { width: 120px; }
   #cart-icon { top: 14px; right: 14px; }
+  .opening-desc { font-size: 10px; }
+  .opening-btn { flex-direction: column; align-items: flex-start; }
+  .opening-price { font-size: 34px; }
 }
