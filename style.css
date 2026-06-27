@@ -228,7 +228,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE / Edge */
 }
+.sheet-options::-webkit-scrollbar { display: none; } /* Chrome / Safari */
 
 /* #sheet-options aloja específicamente las opciones de
    tamaño (Simple/Doble/Triple): layout horizontal tipo
