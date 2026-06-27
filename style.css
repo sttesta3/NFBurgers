@@ -1004,6 +1004,61 @@ body {
   margin-top: -6px;
 }
 
+/* Drink selection */
+#drink-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin-top: 4px;
+}
+
+.drink-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drink-label {
+  font-family: var(--font-subtitle);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+
+.drink-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.drink-pill {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: var(--white);
+  font-family: var(--font-subtitle);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.drink-pill:hover { border-color: rgba(212,0,0,0.5); }
+
+.drink-pill.selected {
+  border-color: var(--accent);
+  background: rgba(212,0,0,0.15);
+}
+
 /* Size pills dentro del promo sheet */
 .promo-size-row {
   display: flex;
