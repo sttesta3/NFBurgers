@@ -170,38 +170,17 @@ function getSlotsForToday(now = new Date()) {
   if ((hour === 0 || hour < 2) && (today === 6 || today === 0)) {
     const prevDay = today === 0 ? 6 : 5; // dom→sáb, sáb→vie
     const type = openDays[prevDay];
-    if (type) return buildSlots(now, slotsByDayType[type], true);
+    if (type) return buildSlots(slotsByDayType[type]);
   }
 
   const type = openDays[today];
   if (!type) return null; // día cerrado
-  return buildSlots(now, slotsByDayType[type], false);
+  return buildSlots(slotsByDayType[type]);
 }
 
 /* Convierte las franjas string en objetos con estado */
-function buildSlots(now, labels, overnight) {
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-
-  return labels.map(label => {
-    const [startStr, endStr] = label.split("-");
-    const startH = parseInt(startStr, 10);
-    const endH   = parseInt(endStr, 10);
-
-    // Minutos desde medianoche para comparar con nowMins
-    const startMins = startH * 60;
-    // Turno 00-01 o 23-00: el cierre es al día siguiente / medianoche
-    const endMins = endH === 0 ? 24 * 60 :
-                    endH < startH ? (24 + endH) * 60 :
-                    endH * 60;
-
-    // Si estamos en la madrugada (overnight), nowMins se refiere
-    // a la hora real (0-60 min). Comparamos contra endMins que ya
-    // tiene los turnos de madrugada ajustados (> 1440).
-    const effectiveNow = overnight ? nowMins + 24 * 60 : nowMins;
-    const past = effectiveNow >= endMins;
-
-    return { label, past };
-  });
+function buildSlots(labels) {
+  return labels.map(label => ({ label }));
 }
 
 function renderSlots(now = new Date()) {
@@ -213,19 +192,13 @@ function renderSlots(now = new Date()) {
     return;
   }
 
-  const allPast = slots.every(s => s.past);
   slotHint.textContent = "";
 
   slotGroup.innerHTML = slots.map(s => `
-    <button
-      type="button"
-      class="slot-btn${s.past ? " past" : ""}"
-      data-slot="${s.label}"
-      ${s.past ? "disabled" : ""}
-    >${s.label}hs</button>
+    <button type="button" class="slot-btn" data-slot="${s.label}">${s.label}hs</button>
   `).join("");
 
-  slotGroup.querySelectorAll(".slot-btn:not(:disabled)").forEach(btn => {
+  slotGroup.querySelectorAll(".slot-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       slotGroup.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
       btn.classList.add("selected");
@@ -878,7 +851,7 @@ function initPromoSheet() {
       if (existing) {
         existing.qty += promoQty;
       } else {
-        cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: "×2 CheeseBurger Doble · 2× Coca · 2× Papas", qty: promoQty });
+        cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: "2× Cheese Doble · 2× Coca · 2× Papas", qty: promoQty });
       }
     }
     if (extraQty > 0 && extraSize) {
