@@ -174,7 +174,8 @@ body {
 #size-sheet,
 #schedule-sheet,
 #checkout-sheet,
-#notes-sheet {
+#notes-sheet,
+#promo-sheet {
   position: fixed;
   left: 0;
   right: 0;
@@ -192,7 +193,8 @@ body {
 #size-sheet.open,
 #schedule-sheet.open,
 #checkout-sheet.open,
-#notes-sheet.open { bottom: 0; }
+#notes-sheet.open,
+#promo-sheet.open { bottom: 0; }
 
 .sheet-handle {
   width: 40px;
@@ -870,10 +872,261 @@ body {
 #send-order:hover  { opacity: 0.9; }
 #send-order:active { transform: scale(0.98); }
 
+/* ─── OPENING MODE ──────────────────────────────── */
+
+/* Banner de apertura */
+#opening-banner {
+  margin-bottom: 20px;
+}
+
+.opening-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border: none;
+  border-radius: 18px;
+  background: var(--accent);
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  animation: banner-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes banner-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,0,0,0.55); }
+  50%       { box-shadow: 0 0 0 14px rgba(212,0,0,0); }
+}
+
+.opening-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.opening-btn:active { opacity: 0.9; transform: scale(0.99); }
+
+.opening-btn-left { display: flex; flex-direction: column; gap: 14px; }
+
+.opening-label {
+  font-family: var(--font-subtitle);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.75);
+}
+
+.opening-title {
+  font-family: var(--font-title);
+  font-size: 30px;
+  color: #fff;
+  line-height: 1;
+}
+
+.opening-desc {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(255,255,255,0.8);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.opening-price {
+  font-family: var(--font-title);
+  font-size: 34px;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Menú clásico congelado */
+#menu.frozen .item,
+#menu.frozen .item-burger {
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+/* Mantener el acordeón funcional (sólo los items no son clickables) */
+#menu.frozen .category-header { pointer-events: auto; opacity: 1; }
+#menu.frozen .category-name   { opacity: 0.4; }
+#menu.frozen .category-chevron { opacity: 0.4; }
+
+/* ─── PROMO SHEET ────────────────────────────────── */
+.promo-options {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.promo-block {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.promo-block-top { display: flex; justify-content: space-between; align-items: flex-start; }
+
+.promo-block-title {
+  font-family: var(--font-subtitle);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.promo-block-desc {
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+}
+
+.promo-block-price {
+  margin-top: 8px;
+  font-family: var(--font-title);
+  font-size: 24px;
+  color: var(--accent);
+}
+
+.promo-max-hint {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  text-align: center;
+  margin-top: -6px;
+}
+
+/* Size pills dentro del promo sheet */
+.promo-size-row {
+  display: flex;
+  gap: 8px;
+}
+
+.promo-size-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: var(--white);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.promo-size-btn:hover { border-color: rgba(212,0,0,0.5); }
+
+.promo-size-btn.selected {
+  border-color: var(--accent);
+  background: rgba(212,0,0,0.12);
+}
+
+.promo-size-name {
+  font-family: var(--font-subtitle);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.promo-size-price {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+}
+
+.promo-size-btn.selected .promo-size-price { color: var(--accent); }
+
+/* Stepper +/- */
+.qty-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: rgba(255,255,255,0.06);
+  border-radius: 100px;
+  width: fit-content;
+  align-self: center;
+  overflow: hidden;
+}
+
+.qty-btn {
+  width: 46px;
+  height: 46px;
+  border: none;
+  background: transparent;
+  color: var(--white);
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.qty-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+.qty-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+.qty-value {
+  font-family: var(--font-subtitle);
+  font-size: 18px;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: center;
+  color: var(--white);
+}
+
+/* Footer del promo sheet */
+.promo-subtotal {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.promo-subtotal strong {
+  font-family: var(--font-title);
+  font-size: 20px;
+  color: var(--white);
+}
+
+#add-promo-btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-subtitle);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.12s;
+}
+
+#add-promo-btn:hover:not(:disabled) { opacity: 0.9; }
+#add-promo-btn:active:not(:disabled) { transform: scale(0.98); }
+#add-promo-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
 /* ─── RESPONSIVE ───────────────────────────────── */
 @media (max-width: 500px) {
   .hero { padding: 28px 16px 24px; }
   .hero-inner { gap: 20px; }
   .logo-img { width: 120px; }
   #cart-icon { top: 14px; right: 14px; }
+  .opening-desc { font-size: 10px; }
+  .opening-btn { flex-direction: column; align-items: flex-start; }
+  .opening-price { font-size: 34px; }
 }

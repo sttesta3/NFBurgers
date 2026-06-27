@@ -2,6 +2,11 @@
    NF Burgers — app.js
    ───────────────────────────────────────────────── */
 
+/* ─── MODO APERTURA ──────────────────────────────
+   Cambiá a false para volver al menú normal.
+   ─────────────────────────────────────────────── */
+const OPENING_MODE = true;
+
 const INCLUYE_PAPAS = " Incluye papas fritas.";
 const PRECIO_BEBIDA_CHICA = 2000;
 const PRECIO_BEBIDA_GRANDE = 5000;
@@ -165,38 +170,17 @@ function getSlotsForToday(now = new Date()) {
   if ((hour === 0 || hour < 2) && (today === 6 || today === 0)) {
     const prevDay = today === 0 ? 6 : 5; // dom→sáb, sáb→vie
     const type = openDays[prevDay];
-    if (type) return buildSlots(now, slotsByDayType[type], true);
+    if (type) return buildSlots(slotsByDayType[type]);
   }
 
   const type = openDays[today];
   if (!type) return null; // día cerrado
-  return buildSlots(now, slotsByDayType[type], false);
+  return buildSlots(slotsByDayType[type]);
 }
 
 /* Convierte las franjas string en objetos con estado */
-function buildSlots(now, labels, overnight) {
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-
-  return labels.map(label => {
-    const [startStr, endStr] = label.split("-");
-    const startH = parseInt(startStr, 10);
-    const endH   = parseInt(endStr, 10);
-
-    // Minutos desde medianoche para comparar con nowMins
-    const startMins = startH * 60;
-    // Turno 00-01 o 23-00: el cierre es al día siguiente / medianoche
-    const endMins = endH === 0 ? 24 * 60 :
-                    endH < startH ? (24 + endH) * 60 :
-                    endH * 60;
-
-    // Si estamos en la madrugada (overnight), nowMins se refiere
-    // a la hora real (0-60 min). Comparamos contra endMins que ya
-    // tiene los turnos de madrugada ajustados (> 1440).
-    const effectiveNow = overnight ? nowMins + 24 * 60 : nowMins;
-    const past = effectiveNow >= endMins;
-
-    return { label, past };
-  });
+function buildSlots(labels) {
+  return labels.map(label => ({ label }));
 }
 
 function renderSlots(now = new Date()) {
@@ -208,19 +192,13 @@ function renderSlots(now = new Date()) {
     return;
   }
 
-  const allPast = slots.every(s => s.past);
   slotHint.textContent = "";
 
   slotGroup.innerHTML = slots.map(s => `
-    <button
-      type="button"
-      class="slot-btn${s.past ? " past" : ""}"
-      data-slot="${s.label}"
-      ${s.past ? "disabled" : ""}
-    >${s.label}hs</button>
+    <button type="button" class="slot-btn" data-slot="${s.label}">${s.label}hs</button>
   `).join("");
 
-  slotGroup.querySelectorAll(".slot-btn:not(:disabled)").forEach(btn => {
+  slotGroup.querySelectorAll(".slot-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       slotGroup.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
       btn.classList.add("selected");
@@ -278,6 +256,7 @@ let customerName = "";
 const menuEl         = document.getElementById("menu");
 const sizeSheet       = document.getElementById("size-sheet");
 const notesSheet      = document.getElementById("notes-sheet");
+const promoSheet      = document.getElementById("promo-sheet");
 const scheduleSheet   = document.getElementById("schedule-sheet");
 const checkoutSheet   = document.getElementById("checkout-sheet");
 const cartModal       = document.getElementById("cart-modal");
@@ -406,6 +385,7 @@ function popHistoryState(fromPopState) {
 function anyPanelOpen() {
   return sizeSheet.classList.contains("open") ||
          notesSheet.classList.contains("open") ||
+         promoSheet.classList.contains("open") ||
          scheduleSheet.classList.contains("open") ||
          checkoutSheet.classList.contains("open") ||
          cartModal.classList.contains("open");
@@ -625,6 +605,8 @@ window.addEventListener("popstate", () => {
     closeSizeSheet(true);
   } else if (notesSheet.classList.contains("open")) {
     closeNotesSheet(true);
+  } else if (promoSheet.classList.contains("open")) {
+    closePromoSheet(true);
   } else if (scheduleSheet.classList.contains("open")) {
     closeSchedule(true);
   } else if (checkoutSheet.classList.contains("open")) {
@@ -637,6 +619,7 @@ window.addEventListener("popstate", () => {
 overlay.addEventListener("click", () => {
   if (sizeSheet.classList.contains("open")) closeSizeSheet();
   else if (notesSheet.classList.contains("open")) closeNotesSheet();
+  else if (promoSheet.classList.contains("open")) closePromoSheet();
   else if (scheduleSheet.classList.contains("open")) closeSchedule();
   else if (checkoutSheet.classList.contains("open")) closeCheckout();
   else if (cartModal.classList.contains("open")) closeCart();
@@ -763,6 +746,153 @@ function renderMenu() {
   });
 }
 
+/* ─── PROMO SHEET ─────────────────────────────────
+   Lógica del modo apertura: banner, sheet de promo
+   y congelamiento del menú regular.
+   ─────────────────────────────────────────────── */
+let promoQty    = 0;   // 0–2
+let extraQty    = 0;   // 0–2
+let extraSize   = null;
+let extraPrice  = 0;
+
+const PROMO_PRICE = 12000;
+const PROMO_MAX   = 2;
+const EXTRA_MAX   = 2;
+
+const extraSizes = {
+  simple: { label: "Simple", price: 12000 },
+  doble:  { label: "Doble",  price: 15000 },
+  triple: { label: "Triple", price: 18000 },
+};
+
+function updatePromoSheet() {
+  const promoQtyEl   = document.getElementById("promo-qty-val");
+  const extraQtyEl   = document.getElementById("extra-qty-val");
+  const promoMinusEl = document.getElementById("promo-minus");
+  const promoPlusEl  = document.getElementById("promo-plus");
+  const extraMinusEl = document.getElementById("extra-minus");
+  const extraPlusEl  = document.getElementById("extra-plus");
+  const addBtn       = document.getElementById("add-promo-btn");
+  const subtotalEl   = document.getElementById("promo-subtotal");
+  const subtotalVal  = document.getElementById("promo-subtotal-val");
+
+  promoQtyEl.textContent = promoQty;
+  extraQtyEl.textContent = extraQty;
+
+  promoMinusEl.disabled = promoQty <= 0;
+  promoPlusEl.disabled  = promoQty >= PROMO_MAX;
+  extraMinusEl.disabled = extraQty <= 0;
+  extraPlusEl.disabled  = !extraSize || extraQty >= EXTRA_MAX;
+
+  const hasSelection = promoQty > 0 || (extraQty > 0 && extraSize);
+  const total = promoQty * PROMO_PRICE + extraQty * extraPrice;
+
+  if (hasSelection) {
+    addBtn.disabled = false;
+    addBtn.textContent = `Agregar al pedido — ${formatPrice(total)}`;
+    subtotalEl.style.display = "block";
+    subtotalVal.textContent = formatPrice(total);
+  } else {
+    addBtn.disabled = true;
+    addBtn.textContent = "Seleccioná al menos una opción";
+    subtotalEl.style.display = "none";
+  }
+}
+
+function openPromoSheet() {
+  promoQty   = 0;
+  extraQty   = 0;
+  extraSize  = null;
+  extraPrice = 0;
+
+  document.querySelectorAll(".promo-size-btn").forEach(b => b.classList.remove("selected"));
+  updatePromoSheet();
+
+  promoSheet.classList.add("open");
+  overlay.classList.add("show");
+  pushHistoryState();
+}
+
+function closePromoSheet(fromPopState = false) {
+  promoSheet.classList.remove("open");
+  hideOverlayIfNothingOpen();
+  popHistoryState(fromPopState);
+}
+
+function initPromoSheet() {
+  document.getElementById("promo-minus").addEventListener("click", () => {
+    if (promoQty > 0) { promoQty--; updatePromoSheet(); }
+  });
+  document.getElementById("promo-plus").addEventListener("click", () => {
+    if (promoQty < PROMO_MAX) { promoQty++; updatePromoSheet(); }
+  });
+  document.getElementById("extra-minus").addEventListener("click", () => {
+    if (extraQty > 0) { extraQty--; updatePromoSheet(); }
+  });
+  document.getElementById("extra-plus").addEventListener("click", () => {
+    if (extraSize && extraQty < EXTRA_MAX) { extraQty++; updatePromoSheet(); }
+  });
+
+  document.querySelectorAll(".promo-size-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".promo-size-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      extraSize  = btn.dataset.size;
+      extraPrice = parseInt(btn.dataset.price, 10);
+      if (extraQty === 0) extraQty = 1; // auto-seleccionar 1 al elegir tamaño
+      updatePromoSheet();
+    });
+  });
+
+  document.getElementById("add-promo-btn").addEventListener("click", () => {
+    if (promoQty > 0) {
+      const key = makeCartKey("Promo Apertura", "");
+      const existing = findInCart(key);
+      if (existing) {
+        existing.qty += promoQty;
+      } else {
+        cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: "2× Cheese Doble · 2× Coca · 2× Papas", qty: promoQty });
+      }
+    }
+    if (extraQty > 0 && extraSize) {
+      const label = extraSizes[extraSize].label;
+      const name  = `CheeseBurger Extra (${label})`;
+      const key   = makeCartKey(name, "");
+      const existing = findInCart(key);
+      if (existing) {
+        existing.qty += extraQty;
+      } else {
+        cart.push({ key, name, price: extraPrice, notes: "", qty: extraQty });
+      }
+    }
+    updateCart();
+    animateCartIcon();
+    closePromoSheet();
+  });
+
+  document.getElementById("open-promo-sheet").addEventListener("click", openPromoSheet);
+}
+
+/* ─── OPENING MODE init ──────────────────────────
+   Si OPENING_MODE = true: muestra el banner,
+   congela el menú regular y arranca el promo sheet.
+   ─────────────────────────────────────────────── */
+function initOpeningMode() {
+  if (!OPENING_MODE) return;
+
+  // Mostrar banner
+  document.getElementById("opening-banner").style.display = "block";
+
+  // Congelar menú (se aplica después de renderMenu)
+  requestAnimationFrame(() => {
+    menuEl.classList.add("frozen");
+  });
+
+  // Inicializar lógica del promo sheet
+  initPromoSheet();
+}
+
 renderMenu();
+initOpeningMode();
 updateStatusBadge();
 setInterval(updateStatusBadge, 60000); // refresca cada minuto
