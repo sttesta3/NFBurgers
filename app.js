@@ -751,17 +751,14 @@ function renderMenu() {
    y congelamiento del menú regular.
    ─────────────────────────────────────────────── */
 let promoQty    = 0;
-let extraQty    = 0;
-let extraSize   = null;
-let extraPrice  = 0;
-let drink1      = null;
-let drink2      = null;
-let maxPromoAdd = 2;   // se recalcula al abrir el sheet según carrito
-let maxExtraAdd = 2;
+let extra1      = null;   // { size, price } o null
+let extra2      = null;
+let drinks      = [];
+let maxPromoAdd = 2;
 
 const PROMO_PRICE = 12000;
 const PROMO_MAX   = 2;
-const EXTRA_MAX   = 2;
+const DRINK_NAMES = ["Coca Cola", "Coca Zero", "Sprite", "Agua"];
 
 const extraSizes = {
   simple: { label: "Simple", price: 12000 },
@@ -769,55 +766,77 @@ const extraSizes = {
   triple: { label: "Triple", price: 18000 },
 };
 
-/* Cuántas promos y extras hay ya en el carrito */
 function cartPromoCount() {
-  const item = cart.find(i => i.name === "Promo Apertura 🎉");
-  return item ? item.qty : 0;
+  return cart.filter(i => i.name === "Promo Apertura 🎉").reduce((s,i) => s + i.qty, 0);
 }
 
-function cartExtraCount() {
-  return cart
-    .filter(i => i.name.startsWith("CheeseBurger Extra"))
-    .reduce((s, i) => s + i.qty, 0);
+/* Renderiza promoQty×2 selectores de bebida dinámicamente */
+function renderDrinkSelectors() {
+  const container  = document.getElementById("drink-selection");
+  const totalSlots = promoQty * 2;
+
+  if (totalSlots === 0) {
+    container.style.display = "none";
+    container.innerHTML = "";
+    return;
+  }
+
+  drinks = drinks.slice(0, totalSlots);
+  while (drinks.length < totalSlots) drinks.push(null);
+
+  container.innerHTML = Array.from({ length: totalSlots }, (_, i) => `
+    <div class="drink-row">
+      <span class="drink-label">Bebida ${i + 1}</span>
+      <div class="drink-pills">
+        ${DRINK_NAMES.map(d => `
+          <button type="button"
+                  class="drink-pill${drinks[i] === d ? " selected" : ""}"
+                  data-value="${d}" data-slot="${i}">${d}</button>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  container.style.display = "flex";
+
+  container.querySelectorAll(".drink-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      const slot = parseInt(pill.dataset.slot, 10);
+      container.querySelectorAll(`.drink-pill[data-slot="${slot}"]`)
+               .forEach(p => p.classList.remove("selected"));
+      pill.classList.add("selected");
+      drinks[slot] = pill.dataset.value;
+      updatePromoSheet();
+    });
+  });
 }
 
 function updatePromoSheet() {
-  const promoQtyEl   = document.getElementById("promo-qty-val");
-  const extraQtyEl   = document.getElementById("extra-qty-val");
-  const promoMinusEl = document.getElementById("promo-minus");
-  const promoPlusEl  = document.getElementById("promo-plus");
-  const extraMinusEl = document.getElementById("extra-minus");
-  const extraPlusEl  = document.getElementById("extra-plus");
-  const addBtn       = document.getElementById("add-promo-btn");
-  const subtotalEl   = document.getElementById("promo-subtotal");
-  const subtotalVal  = document.getElementById("promo-subtotal-val");
-  const drinkSel     = document.getElementById("drink-selection");
+  document.getElementById("promo-qty-val").textContent = promoQty;
+  document.getElementById("promo-minus").disabled = promoQty <= 0;
+  document.getElementById("promo-plus").disabled  = promoQty >= maxPromoAdd;
 
-  promoQtyEl.textContent = promoQty;
-  extraQtyEl.textContent = extraQty;
+  const totalSlots = promoQty * 2;
+  const drinksOk   = promoQty === 0 || (drinks.length === totalSlots && drinks.every(d => d !== null));
+  const hasPromo   = promoQty > 0 && drinksOk;
+  const hasExtra   = extra1 !== null || extra2 !== null;
+  const total      = promoQty * PROMO_PRICE
+                   + (extra1?.price || 0)
+                   + (extra2?.price || 0);
 
-  promoMinusEl.disabled = promoQty <= 0;
-  promoPlusEl.disabled  = promoQty >= maxPromoAdd;
-  extraMinusEl.disabled = extraQty <= 0;
-  extraPlusEl.disabled  = !extraSize || extraQty >= maxExtraAdd;
+  const addBtn      = document.getElementById("add-promo-btn");
+  const subtotalEl  = document.getElementById("promo-subtotal");
+  const subtotalVal = document.getElementById("promo-subtotal-val");
 
-  // Mostrar/ocultar selector de bebidas según cantidad de promos
-  drinkSel.style.display = promoQty > 0 ? "flex" : "none";
-
-  const drinksOk  = promoQty === 0 || (drink1 !== null && drink2 !== null);
-  const hasPromo  = promoQty > 0 && drinksOk;
-  const hasExtra  = extraQty > 0 && extraSize;
-  const hasAny    = hasPromo || hasExtra;
-  const total     = promoQty * PROMO_PRICE + extraQty * extraPrice;
-
-  if (hasAny) {
+  if (hasPromo || hasExtra) {
     addBtn.disabled = false;
     addBtn.textContent = `Agregar al pedido — ${formatPrice(total)}`;
     subtotalEl.style.display = "block";
     subtotalVal.textContent = formatPrice(total);
   } else if (promoQty > 0 && !drinksOk) {
+    const pending = totalSlots - drinks.filter(d => d !== null).length;
     addBtn.disabled = true;
-    addBtn.textContent = "Elegí las dos bebidas";
+    addBtn.textContent = pending === 1 ? "Elegí una bebida más" : `Elegí las ${totalSlots} bebidas`;
     subtotalEl.style.display = "none";
   } else {
     addBtn.disabled = true;
@@ -826,22 +845,38 @@ function updatePromoSheet() {
   }
 }
 
+function cartExtraCount() {
+  return cart
+    .filter(i => i.name.startsWith("CheeseBurger Extra"))
+    .reduce((s, i) => s + i.qty, 0);
+}
+
 function openPromoSheet() {
-  // Calcular cuánto espacio queda en el carrito
   maxPromoAdd = PROMO_MAX - cartPromoCount();
-  maxExtraAdd = EXTRA_MAX - cartExtraCount();
+  promoQty    = 0;
+  extra1      = null;
+  extra2      = null;
+  drinks      = [];
 
-  promoQty   = 0;
-  extraQty   = 0;
-  extraSize  = null;
-  extraPrice = 0;
-  drink1     = null;
-  drink2     = null;
+  // Cuántos extras más se pueden agregar
+  const inCart = cartExtraCount();
+  const maxExtrasAllowed = Math.max(0, 2 - inCart);
 
-  document.querySelectorAll(".promo-size-btn").forEach(b => b.classList.remove("selected"));
-  document.querySelectorAll(".drink-pill").forEach(b => b.classList.remove("selected"));
-  document.getElementById("drink-selection").style.display = "none";
+  // Bloquear visualmente los slots que ya no están disponibles
+  const block1 = document.getElementById("extra1-size-group")?.closest(".promo-block");
+  const block2 = document.getElementById("extra2-size-group")?.closest(".promo-block");
 
+  [block1, block2].forEach((block, i) => {
+    if (!block) return;
+    const disabled = i >= maxExtrasAllowed;
+    block.classList.toggle("promo-block-disabled", disabled);
+    block.querySelectorAll(".promo-size-btn").forEach(btn => {
+      btn.disabled = disabled;
+    });
+  });
+
+  document.querySelectorAll(".promo-size-btn:not(:disabled)").forEach(b => b.classList.remove("selected"));
+  renderDrinkSelectors();
   updatePromoSheet();
 
   promoSheet.classList.add("open");
@@ -857,65 +892,47 @@ function closePromoSheet(fromPopState = false) {
 
 function initPromoSheet() {
   document.getElementById("promo-minus").addEventListener("click", () => {
-    if (promoQty > 0) { promoQty--; updatePromoSheet(); }
+    if (promoQty > 0) { promoQty--; renderDrinkSelectors(); updatePromoSheet(); }
   });
   document.getElementById("promo-plus").addEventListener("click", () => {
-    if (promoQty < maxPromoAdd) { promoQty++; updatePromoSheet(); }
-  });
-  document.getElementById("extra-minus").addEventListener("click", () => {
-    if (extraQty > 0) { extraQty--; updatePromoSheet(); }
-  });
-  document.getElementById("extra-plus").addEventListener("click", () => {
-    if (extraSize && extraQty < maxExtraAdd) { extraQty++; updatePromoSheet(); }
+    if (promoQty < maxPromoAdd) { promoQty++; renderDrinkSelectors(); updatePromoSheet(); }
   });
 
+  // Extra 1 y Extra 2: cada uno elige tamaño independientemente
   document.querySelectorAll(".promo-size-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".promo-size-btn").forEach(b => b.classList.remove("selected"));
+      const extraNum = parseInt(btn.dataset.extra, 10); // 1 o 2
+      const group    = document.getElementById(`extra${extraNum}-size-group`);
+      group.querySelectorAll(".promo-size-btn").forEach(b => b.classList.remove("selected"));
       btn.classList.add("selected");
-      extraSize  = btn.dataset.size;
-      extraPrice = parseInt(btn.dataset.price, 10);
-      if (extraQty === 0) extraQty = 1;
+      const entry = { size: btn.dataset.size, price: parseInt(btn.dataset.price, 10) };
+      if (extraNum === 1) extra1 = entry;
+      else                extra2 = entry;
       updatePromoSheet();
-    });
-  });
-
-  // Drink pill listeners
-  ["drink1-group", "drink2-group"].forEach((groupId, idx) => {
-    document.querySelectorAll(`#${groupId} .drink-pill`).forEach(pill => {
-      pill.addEventListener("click", () => {
-        document.querySelectorAll(`#${groupId} .drink-pill`).forEach(p => p.classList.remove("selected"));
-        pill.classList.add("selected");
-        if (idx === 0) drink1 = pill.dataset.value;
-        else           drink2 = pill.dataset.value;
-        updatePromoSheet();
-      });
     });
   });
 
   document.getElementById("add-promo-btn").addEventListener("click", () => {
     if (promoQty > 0) {
-      const drinkNote = `${drink1} · ${drink2}`;
-      const note = `×2 Cheese Doble · ${drink1} y ${drink2} · ×2 Papas`;
-      const key = makeCartKey("Promo Apertura 🎉", drinkNote);
-      const existing = findInCart(key);
-      if (existing) {
-        existing.qty += promoQty;
-      } else {
-        cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: note, qty: promoQty });
+      for (let p = 0; p < promoQty; p++) {
+        const d1   = drinks[p * 2];
+        const d2   = drinks[p * 2 + 1];
+        const note = `×2 Cheese Doble · ${d1} y ${d2} · ×2 Papas`;
+        const key  = makeCartKey("Promo Apertura 🎉", note);
+        const existing = findInCart(key);
+        if (existing) existing.qty++;
+        else cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: note, qty: 1 });
       }
     }
-    if (extraQty > 0 && extraSize) {
-      const label = extraSizes[extraSize].label;
-      const name  = `CheeseBurger Extra (${label})`;
-      const key   = makeCartKey(name, "");
+    [extra1, extra2].forEach((extra, i) => {
+      if (!extra) return;
+      const label    = extraSizes[extra.size].label;
+      const name     = `CheeseBurger Extra ${i + 1} (${label})`;
+      const key      = makeCartKey(name, "");
       const existing = findInCart(key);
-      if (existing) {
-        existing.qty += extraQty;
-      } else {
-        cart.push({ key, name, price: extraPrice, notes: "", qty: extraQty });
-      }
-    }
+      if (existing) existing.qty++;
+      else cart.push({ key, name, price: extra.price, notes: "", qty: 1 });
+    });
     updateCart();
     animateCartIcon();
     closePromoSheet();

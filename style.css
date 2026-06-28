@@ -228,10 +228,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  scrollbar-width: none;        /* Firefox */
-  -ms-overflow-style: none;     /* IE / Edge */
+  /* scrollbar visible — el sheet ya no tapa la del browser en desktop */
 }
-.sheet-options::-webkit-scrollbar { display: none; } /* Chrome / Safari */
 
 /* #sheet-options aloja específicamente las opciones de
    tamaño (Simple/Doble/Triple): layout horizontal tipo
@@ -976,6 +974,11 @@ body {
   gap: 14px;
 }
 
+.promo-block-disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 .promo-block-top { display: flex; justify-content: space-between; align-items: flex-start; }
 
 .promo-block-title {
@@ -1187,4 +1190,23 @@ body {
   .opening-desc { font-size: 10px; }
   .opening-btn { flex-direction: column; align-items: flex-start; }
   .opening-price { font-size: 34px; }
+}
+
+/* ─── DESKTOP: sheets centrados con ancho fijo ───
+   En pantallas anchas el sheet no ocupa todo el
+   ancho del viewport — queda centrado con 520px
+   de ancho, así su scrollbar nunca se solapa con
+   la scrollbar del navegador.
+   ─────────────────────────────────────────────── */
+@media (min-width: 640px) {
+  #size-sheet,
+  #schedule-sheet,
+  #checkout-sheet,
+  #notes-sheet,
+  #promo-sheet {
+    width: 620px;
+    left: calc(50% - 310px);
+    right: auto;
+    border-radius: 20px 20px 0 0;
+  }
 }

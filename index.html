@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=HK+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 
@@ -93,28 +94,43 @@
         </div>
       </div>
 
-      <!-- EXTRA BURGER BLOCK -->
+      <!-- EXTRA BURGER 1 -->
       <div class="promo-block">
-        <div class="promo-block-title">CheeseBurger Extra</div>
-        <div class="promo-block-desc">Elegí el tamaño — máximo 2 por pedido</div>
-        <div class="promo-size-row" id="extra-size-group">
-          <button type="button" class="promo-size-btn" data-size="simple" data-price="12000">
+        <div class="promo-block-title">CheeseBurger Extra 1</div>
+        <div class="promo-block-desc">Opcional — elegí el tamaño</div>
+        <div class="promo-size-row" id="extra1-size-group">
+          <button type="button" class="promo-size-btn" data-extra="1" data-size="simple" data-price="12000">
             <span class="promo-size-name">Simple</span>
             <span class="promo-size-price">$12.000</span>
           </button>
-          <button type="button" class="promo-size-btn" data-size="doble" data-price="15000">
+          <button type="button" class="promo-size-btn" data-extra="1" data-size="doble" data-price="15000">
             <span class="promo-size-name">Doble</span>
             <span class="promo-size-price">$15.000</span>
           </button>
-          <button type="button" class="promo-size-btn" data-size="triple" data-price="18000">
+          <button type="button" class="promo-size-btn" data-extra="1" data-size="triple" data-price="18000">
             <span class="promo-size-name">Triple</span>
             <span class="promo-size-price">$18.000</span>
           </button>
         </div>
-        <div class="qty-stepper">
-          <button class="qty-btn" id="extra-minus" disabled>−</button>
-          <span class="qty-value" id="extra-qty-val">0</span>
-          <button class="qty-btn" id="extra-plus" disabled>+</button>
+      </div>
+
+      <!-- EXTRA BURGER 2 -->
+      <div class="promo-block">
+        <div class="promo-block-title">CheeseBurger Extra 2</div>
+        <div class="promo-block-desc">Opcional — elegí el tamaño</div>
+        <div class="promo-size-row" id="extra2-size-group">
+          <button type="button" class="promo-size-btn" data-extra="2" data-size="simple" data-price="12000">
+            <span class="promo-size-name">Simple</span>
+            <span class="promo-size-price">$12.000</span>
+          </button>
+          <button type="button" class="promo-size-btn" data-extra="2" data-size="doble" data-price="15000">
+            <span class="promo-size-name">Doble</span>
+            <span class="promo-size-price">$15.000</span>
+          </button>
+          <button type="button" class="promo-size-btn" data-extra="2" data-size="triple" data-price="18000">
+            <span class="promo-size-name">Triple</span>
+            <span class="promo-size-price">$18.000</span>
+          </button>
         </div>
       </div>
 
