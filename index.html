@@ -70,27 +70,8 @@
         </div>
         <p class="promo-max-hint">Máximo 2 promos por pedido</p>
 
-        <!-- DRINK SELECTION (visible solo cuando promoQty > 0) -->
-        <div id="drink-selection" style="display:none;">
-          <div class="drink-row">
-            <span class="drink-label">Bebida 1</span>
-            <div class="drink-pills" id="drink1-group">
-              <button type="button" class="drink-pill" data-value="Coca Cola">Coca Cola</button>
-              <button type="button" class="drink-pill" data-value="Coca Zero">Coca Zero</button>
-              <button type="button" class="drink-pill" data-value="Sprite">Sprite</button>
-              <button type="button" class="drink-pill" data-value="Agua">Agua</button>
-            </div>
-          </div>
-          <div class="drink-row">
-            <span class="drink-label">Bebida 2</span>
-            <div class="drink-pills" id="drink2-group">
-              <button type="button" class="drink-pill" data-value="Coca Cola">Coca Cola</button>
-              <button type="button" class="drink-pill" data-value="Coca Zero">Coca Zero</button>
-              <button type="button" class="drink-pill" data-value="Sprite">Sprite</button>
-              <button type="button" class="drink-pill" data-value="Agua">Agua</button>
-            </div>
-          </div>
-        </div>
+        <!-- DRINK SELECTION — se genera dinámicamente según promoQty -->
+        <div id="drink-selection" style="display:none;"></div>
       </div>
 
       <!-- EXTRA BURGER BLOCK -->
