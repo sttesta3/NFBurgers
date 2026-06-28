@@ -845,6 +845,12 @@ function updatePromoSheet() {
   }
 }
 
+function cartExtraCount() {
+  return cart
+    .filter(i => i.name.startsWith("CheeseBurger Extra"))
+    .reduce((s, i) => s + i.qty, 0);
+}
+
 function openPromoSheet() {
   maxPromoAdd = PROMO_MAX - cartPromoCount();
   promoQty    = 0;
@@ -852,7 +858,24 @@ function openPromoSheet() {
   extra2      = null;
   drinks      = [];
 
-  document.querySelectorAll(".promo-size-btn").forEach(b => b.classList.remove("selected"));
+  // Cuántos extras más se pueden agregar
+  const inCart = cartExtraCount();
+  const maxExtrasAllowed = Math.max(0, 2 - inCart);
+
+  // Bloquear visualmente los slots que ya no están disponibles
+  const block1 = document.getElementById("extra1-size-group")?.closest(".promo-block");
+  const block2 = document.getElementById("extra2-size-group")?.closest(".promo-block");
+
+  [block1, block2].forEach((block, i) => {
+    if (!block) return;
+    const disabled = i >= maxExtrasAllowed;
+    block.classList.toggle("promo-block-disabled", disabled);
+    block.querySelectorAll(".promo-size-btn").forEach(btn => {
+      btn.disabled = disabled;
+    });
+  });
+
+  document.querySelectorAll(".promo-size-btn:not(:disabled)").forEach(b => b.classList.remove("selected"));
   renderDrinkSelectors();
   updatePromoSheet();
 

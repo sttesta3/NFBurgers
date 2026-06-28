@@ -974,6 +974,11 @@ body {
   gap: 14px;
 }
 
+.promo-block-disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 .promo-block-top { display: flex; justify-content: space-between; align-items: flex-start; }
 
 .promo-block-title {
@@ -1199,8 +1204,8 @@ body {
   #checkout-sheet,
   #notes-sheet,
   #promo-sheet {
-    width: 680px;
-    left: calc(50% - 340px);
+    width: 620px;
+    left: calc(50% - 310px);
     right: auto;
     border-radius: 20px 20px 0 0;
   }
