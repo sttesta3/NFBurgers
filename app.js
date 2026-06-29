@@ -149,56 +149,55 @@ function isOpenNow(now = new Date()) {
    Un turno está "pasado" si su hora de cierre ya pasó.
    La franja 00-01 es de la madrugada del día siguiente.
    ─────────────────────────────────────────────── */
-const slotsByDayType = {
-  short: ["20-21","21-22","22-23","23-00"],           // Jue / Dom
-  long:  ["20-21","21-22","22-23","23-00","00-01"],   // Vie / Sáb
+/* ─── TURNOS DE ENTREGA ──────────────────────────
+   Siempre se muestran los 5 turnos (20-01hs).
+   Los que ya pasaron en el día actual se muestran
+   grisados y no son seleccionables.
+   En días sin servicio (lun-mié) ningún turno está
+   grisado aún → permite pre-coordinar con anticipación.
+   ─────────────────────────────────────────────── */
+const ALL_SLOTS = ["20-21","21-22","22-23","23-00","00-01"];
+
+// Minuto del día en que termina cada turno.
+// Los turnos nocturnos (23-00 y 00-01) usan minutos > 1440
+// para comparar correctamente pasada la medianoche.
+const SLOT_END_MINS = {
+  "20-21": 21 * 60,        // 1260
+  "21-22": 22 * 60,        // 1320
+  "22-23": 23 * 60,        // 1380
+  "23-00": 24 * 60,        // 1440 — medianoche
+  "00-01": 25 * 60,        // 1500 — 01:00hs
 };
 
-const openDays = {
-  0: "short",  // Domingo
-  4: "short",  // Jueves
-  5: "long",   // Viernes
-  6: "long",   // Sábado
-};
+function buildSlots(now = new Date()) {
+  const h   = now.getHours();
+  const m   = now.getMinutes();
+  // Si son las 00:xx o 01:xx sumamos 24h para comparar
+  // correctamente contra los turnos nocturnos.
+  const adj = (h < 2 ? h * 60 + m + 24 * 60 : h * 60 + m);
 
-function getSlotsForToday(now = new Date()) {
-  const today = now.getDay();
-
-  // Caso especial: si son las 00:xx o 01:xx del sábado/domingo,
-  // los turnos que aplican son los del día anterior (Vie/Sáb).
-  const hour = now.getHours();
-  if ((hour === 0 || hour < 2) && (today === 6 || today === 0)) {
-    const prevDay = today === 0 ? 6 : 5; // dom→sáb, sáb→vie
-    const type = openDays[prevDay];
-    if (type) return buildSlots(slotsByDayType[type]);
-  }
-
-  const type = openDays[today];
-  if (!type) return null; // día cerrado
-  return buildSlots(slotsByDayType[type]);
-}
-
-/* Convierte las franjas string en objetos con estado */
-function buildSlots(labels) {
-  return labels.map(label => ({ label }));
+  return ALL_SLOTS.map(label => ({
+    label,
+    past: adj >= SLOT_END_MINS[label],
+  }));
 }
 
 function renderSlots(now = new Date()) {
-  const slots = getSlotsForToday(now);
+  const slots       = buildSlots(now);
+  const slotSection = slotGroup.closest(".form-group");
 
-  if (!slots) {
-    slotGroup.innerHTML = "";
-    slotHint.textContent = "";
-    return;
-  }
-
+  slotSection.style.display = "";
+  selectedSlot = null;
   slotHint.textContent = "";
 
   slotGroup.innerHTML = slots.map(s => `
-    <button type="button" class="slot-btn" data-slot="${s.label}">${s.label}hs</button>
+    <button type="button"
+            class="slot-btn${s.past ? " past" : ""}"
+            data-slot="${s.label}"
+            ${s.past ? "disabled" : ""}>${s.label}hs</button>
   `).join("");
 
-  slotGroup.querySelectorAll(".slot-btn").forEach(btn => {
+  slotGroup.querySelectorAll(".slot-btn:not(:disabled)").forEach(btn => {
     btn.addEventListener("click", () => {
       slotGroup.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
       btn.classList.add("selected");
