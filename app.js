@@ -5,7 +5,7 @@
 /* ─── MODO APERTURA ──────────────────────────────
    Cambiá a false para volver al menú normal.
    ─────────────────────────────────────────────── */
-const OPENING_MODE = true;
+const OPENING_MODE = false;
 
 const INCLUYE_PAPAS = " Incluye papas fritas.";
 const PRECIO_BEBIDA_CHICA = 2000;
