@@ -5,7 +5,6 @@
 /* ─── MODO APERTURA ──────────────────────────────
    Cambiá a false para volver al menú normal.
    ─────────────────────────────────────────────── */
-const OPENING_MODE = false;
 
 const INCLUYE_PAPAS = " Incluye papas fritas.";
 const PRECIO_BEBIDA_CHICA = 2000;
@@ -144,58 +143,53 @@ function isOpenNow(now = new Date()) {
 }
 
 /* ─── TURNOS DE ENTREGA ──────────────────────────
-   Jueves y Domingo: 20-21, 21-22, 22-23, 23-00
-   Viernes y Sábado: 20-21, 21-22, 22-23, 23-00, 00-01
-   Un turno está "pasado" si su hora de cierre ya pasó.
-   La franja 00-01 es de la madrugada del día siguiente.
+   El usuario elige primero el DÍA (Jue/Vie/Sáb/Dom).
+   Los turnos se actualizan según el día elegido.
+   Si el día elegido es HOY, los turnos ya pasados
+   aparecen grisados y no son seleccionables.
    ─────────────────────────────────────────────── */
-/* ─── TURNOS DE ENTREGA ──────────────────────────
-   Siempre se muestran los 5 turnos (20-01hs).
-   Los que ya pasaron en el día actual se muestran
-   grisados y no son seleccionables.
-   En días sin servicio (lun-mié) ningún turno está
-   grisado aún → permite pre-coordinar con anticipación.
-   ─────────────────────────────────────────────── */
-const ALL_SLOTS = ["20-21","21-22","22-23","23-00","00-01"];
-
-// Minuto del día en que termina cada turno.
-// Los turnos nocturnos (23-00 y 00-01) usan minutos > 1440
-// para comparar correctamente pasada la medianoche.
-const SLOT_END_MINS = {
-  "20-21": 21 * 60,        // 1260
-  "21-22": 22 * 60,        // 1320
-  "22-23": 23 * 60,        // 1380
-  "23-00": 24 * 60,        // 1440 — medianoche
-  "00-01": 25 * 60,        // 1500 — 01:00hs
+const DAY_SLOTS = {
+  4: ["20-21","21-22","22-23","23-00"],          // Jueves
+  5: ["20-21","21-22","22-23","23-00","00-01"],  // Viernes
+  6: ["20-21","21-22","22-23","23-00","00-01"],  // Sábado
+  0: ["20-21","21-22","22-23","23-00"],          // Domingo
 };
 
-function buildSlots(now = new Date()) {
-  const h   = now.getHours();
-  const m   = now.getMinutes();
-  // Si son las 00:xx o 01:xx sumamos 24h para comparar
-  // correctamente contra los turnos nocturnos.
-  const adj = (h < 2 ? h * 60 + m + 24 * 60 : h * 60 + m);
+const DAY_NAMES = { 4: "Jueves", 5: "Viernes", 6: "Sábado", 0: "Domingo" };
 
-  return ALL_SLOTS.map(label => ({
-    label,
-    past: adj >= SLOT_END_MINS[label],
-  }));
+const SLOT_END_MINS = {
+  "20-21": 21 * 60,
+  "21-22": 22 * 60,
+  "22-23": 23 * 60,
+  "23-00": 24 * 60,
+  "00-01": 25 * 60,
+};
+
+function isSlotPast(label) {
+  // Solo grisa si el día elegido es hoy
+  const todayDay = new Date().getDay();
+  if (selectedDay !== todayDay) return false;
+
+  const h   = new Date().getHours();
+  const m   = new Date().getMinutes();
+  const adj = h < 2 ? h * 60 + m + 24 * 60 : h * 60 + m;
+  return adj >= SLOT_END_MINS[label];
 }
 
-function renderSlots(now = new Date()) {
-  const slots       = buildSlots(now);
-  const slotSection = slotGroup.closest(".form-group");
+function renderSlots() {
+  const slots       = DAY_SLOTS[selectedDay] || [];
+  const slotSection = document.getElementById("slot-section");
 
   slotSection.style.display = "";
   selectedSlot = null;
-  slotHint.textContent = "";
 
-  slotGroup.innerHTML = slots.map(s => `
-    <button type="button"
-            class="slot-btn${s.past ? " past" : ""}"
-            data-slot="${s.label}"
-            ${s.past ? "disabled" : ""}>${s.label}hs</button>
-  `).join("");
+  slotGroup.innerHTML = slots.map(label => {
+    const past = isSlotPast(label);
+    return `<button type="button"
+              class="slot-btn${past ? " past" : ""}"
+              data-slot="${label}"
+              ${past ? "disabled" : ""}>${label}hs</button>`;
+  }).join("");
 
   slotGroup.querySelectorAll(".slot-btn:not(:disabled)").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -255,7 +249,6 @@ let customerName = "";
 const menuEl         = document.getElementById("menu");
 const sizeSheet       = document.getElementById("size-sheet");
 const notesSheet      = document.getElementById("notes-sheet");
-const promoSheet      = document.getElementById("promo-sheet");
 const scheduleSheet   = document.getElementById("schedule-sheet");
 const checkoutSheet   = document.getElementById("checkout-sheet");
 const cartModal       = document.getElementById("cart-modal");
@@ -384,7 +377,6 @@ function popHistoryState(fromPopState) {
 function anyPanelOpen() {
   return sizeSheet.classList.contains("open") ||
          notesSheet.classList.contains("open") ||
-         promoSheet.classList.contains("open") ||
          scheduleSheet.classList.contains("open") ||
          checkoutSheet.classList.contains("open") ||
          cartModal.classList.contains("open");
@@ -519,29 +511,25 @@ document.getElementById("close-cart").addEventListener("click", () => closeCart(
    en vez de mandar el mensaje directo.
    ─────────────────────────────────────────────── */
 function openCheckout() {
-  // Cerramos el carrito visualmente sin tocar el historial:
-  // el checkout reutiliza el mismo estado que ya empujamos
-  // al abrir el carrito. Si acá llamáramos a closeCart() (que
-  // hace history.back()) y enseguida abriéramos el checkout
-  // (que hace pushHistoryState()), el history.back() es async
-  // y en mobile el popstate llega después de abrir el checkout,
-  // cerrándolo al instante.
   cartModal.classList.remove("open");
   document.body.style.overflow = "";
 
   selectedPayment = null;
-  selectedSlot = null;
+  selectedDay     = null;
+  selectedSlot    = null;
   customerNameInput.value = "";
   addressInput.value = "";
   checkoutError.style.display = "none";
 
   document.querySelectorAll("#payment-group .pill").forEach(p => p.classList.remove("selected"));
-
-  renderSlots(); // genera turnos del día con los que ya pasaron grisados
+  document.querySelectorAll("#day-group .pill").forEach(p => p.classList.remove("selected"));
+  document.getElementById("slot-section").style.display = "none";
+  slotGroup.innerHTML = "";
 
   checkoutSheet.classList.add("open");
   overlay.classList.add("show");
-  pushHistoryState(); // no-op si ya había un estado empujado por el carrito
+  // No llamamos a pushHistoryState: el checkout reutiliza el estado
+  // del historial que ya empujó el carrito al abrirse.
 }
 
 function closeCheckout(fromPopState = false) {
@@ -567,6 +555,18 @@ document.querySelectorAll("#payment-group .pill").forEach(pill => {
   });
 });
 
+// Selector de día: al elegir día muestra los turnos correctos
+document.querySelectorAll("#day-group .pill").forEach(pill => {
+  pill.addEventListener("click", () => {
+    document.querySelectorAll("#day-group .pill").forEach(p => p.classList.remove("selected"));
+    pill.classList.add("selected");
+    selectedDay  = parseInt(pill.dataset.day, 10);
+    selectedSlot = null;
+    checkoutError.style.display = "none";
+    renderSlots();
+  });
+});
+
 document.getElementById("confirm-checkout").addEventListener("click", () => {
   if (customerNameInput.value.trim() === "") {
     checkoutError.textContent = "Ingresá tu nombre.";
@@ -576,6 +576,11 @@ document.getElementById("confirm-checkout").addEventListener("click", () => {
   }
   if (!selectedPayment) {
     checkoutError.textContent = "Elegí un método de pago.";
+    checkoutError.style.display = "block";
+    return;
+  }
+  if (!selectedDay) {
+    checkoutError.textContent = "Elegí el día de entrega.";
     checkoutError.style.display = "block";
     return;
   }
@@ -604,8 +609,6 @@ window.addEventListener("popstate", () => {
     closeSizeSheet(true);
   } else if (notesSheet.classList.contains("open")) {
     closeNotesSheet(true);
-  } else if (promoSheet.classList.contains("open")) {
-    closePromoSheet(true);
   } else if (scheduleSheet.classList.contains("open")) {
     closeSchedule(true);
   } else if (checkoutSheet.classList.contains("open")) {
@@ -618,7 +621,6 @@ window.addEventListener("popstate", () => {
 overlay.addEventListener("click", () => {
   if (sizeSheet.classList.contains("open")) closeSizeSheet();
   else if (notesSheet.classList.contains("open")) closeNotesSheet();
-  else if (promoSheet.classList.contains("open")) closePromoSheet();
   else if (scheduleSheet.classList.contains("open")) closeSchedule();
   else if (checkoutSheet.classList.contains("open")) closeCheckout();
   else if (cartModal.classList.contains("open")) closeCart();
@@ -640,6 +642,7 @@ function sendOrderToWhatsApp() {
   msg += `%0A*Total: ${formatPrice(totalPrice)}*`;
 
   msg += `%0A%0A💳 Pago: ${selectedPayment}`;
+  msg += `%0A📅 Día: ${DAY_NAMES[selectedDay]}`;
   msg += `%0A🕐 Turno: ${selectedSlot}hs`;
   msg += `%0A📍 Dirección: ${encodeURIComponent(addressInput.value.trim())}`;
 
@@ -745,221 +748,6 @@ function renderMenu() {
   });
 }
 
-/* ─── PROMO SHEET ─────────────────────────────────
-   Lógica del modo apertura: banner, sheet de promo
-   y congelamiento del menú regular.
-   ─────────────────────────────────────────────── */
-let promoQty    = 0;
-let extra1      = null;   // { size, price } o null
-let extra2      = null;
-let drinks      = [];
-let maxPromoAdd = 2;
-
-const PROMO_PRICE = 12000;
-const PROMO_MAX   = 2;
-const DRINK_NAMES = ["Coca Cola", "Coca Zero", "Sprite", "Agua"];
-
-const extraSizes = {
-  simple: { label: "Simple", price: 12000 },
-  doble:  { label: "Doble",  price: 15000 },
-  triple: { label: "Triple", price: 18000 },
-};
-
-function cartPromoCount() {
-  return cart.filter(i => i.name === "Promo Apertura 🎉").reduce((s,i) => s + i.qty, 0);
-}
-
-/* Renderiza promoQty×2 selectores de bebida dinámicamente */
-function renderDrinkSelectors() {
-  const container  = document.getElementById("drink-selection");
-  const totalSlots = promoQty * 2;
-
-  if (totalSlots === 0) {
-    container.style.display = "none";
-    container.innerHTML = "";
-    return;
-  }
-
-  drinks = drinks.slice(0, totalSlots);
-  while (drinks.length < totalSlots) drinks.push(null);
-
-  container.innerHTML = Array.from({ length: totalSlots }, (_, i) => `
-    <div class="drink-row">
-      <span class="drink-label">Bebida ${i + 1}</span>
-      <div class="drink-pills">
-        ${DRINK_NAMES.map(d => `
-          <button type="button"
-                  class="drink-pill${drinks[i] === d ? " selected" : ""}"
-                  data-value="${d}" data-slot="${i}">${d}</button>
-        `).join("")}
-      </div>
-    </div>
-  `).join("");
-
-  container.style.display = "flex";
-
-  container.querySelectorAll(".drink-pill").forEach(pill => {
-    pill.addEventListener("click", () => {
-      const slot = parseInt(pill.dataset.slot, 10);
-      container.querySelectorAll(`.drink-pill[data-slot="${slot}"]`)
-               .forEach(p => p.classList.remove("selected"));
-      pill.classList.add("selected");
-      drinks[slot] = pill.dataset.value;
-      updatePromoSheet();
-    });
-  });
-}
-
-function updatePromoSheet() {
-  document.getElementById("promo-qty-val").textContent = promoQty;
-  document.getElementById("promo-minus").disabled = promoQty <= 0;
-  document.getElementById("promo-plus").disabled  = promoQty >= maxPromoAdd;
-
-  const totalSlots = promoQty * 2;
-  const drinksOk   = promoQty === 0 || (drinks.length === totalSlots && drinks.every(d => d !== null));
-  const hasPromo   = promoQty > 0 && drinksOk;
-  const hasExtra   = extra1 !== null || extra2 !== null;
-  const total      = promoQty * PROMO_PRICE
-                   + (extra1?.price || 0)
-                   + (extra2?.price || 0);
-
-  const addBtn      = document.getElementById("add-promo-btn");
-  const subtotalEl  = document.getElementById("promo-subtotal");
-  const subtotalVal = document.getElementById("promo-subtotal-val");
-
-  if (hasPromo || hasExtra) {
-    addBtn.disabled = false;
-    addBtn.textContent = `Agregar al pedido — ${formatPrice(total)}`;
-    subtotalEl.style.display = "block";
-    subtotalVal.textContent = formatPrice(total);
-  } else if (promoQty > 0 && !drinksOk) {
-    const pending = totalSlots - drinks.filter(d => d !== null).length;
-    addBtn.disabled = true;
-    addBtn.textContent = pending === 1 ? "Elegí una bebida más" : `Elegí las ${totalSlots} bebidas`;
-    subtotalEl.style.display = "none";
-  } else {
-    addBtn.disabled = true;
-    addBtn.textContent = "Seleccioná al menos una opción";
-    subtotalEl.style.display = "none";
-  }
-}
-
-function cartExtraCount() {
-  return cart
-    .filter(i => i.name.startsWith("CheeseBurger Extra"))
-    .reduce((s, i) => s + i.qty, 0);
-}
-
-function openPromoSheet() {
-  maxPromoAdd = PROMO_MAX - cartPromoCount();
-  promoQty    = 0;
-  extra1      = null;
-  extra2      = null;
-  drinks      = [];
-
-  // Cuántos extras más se pueden agregar
-  const inCart = cartExtraCount();
-  const maxExtrasAllowed = Math.max(0, 2 - inCart);
-
-  // Bloquear visualmente los slots que ya no están disponibles
-  const block1 = document.getElementById("extra1-size-group")?.closest(".promo-block");
-  const block2 = document.getElementById("extra2-size-group")?.closest(".promo-block");
-
-  [block1, block2].forEach((block, i) => {
-    if (!block) return;
-    const disabled = i >= maxExtrasAllowed;
-    block.classList.toggle("promo-block-disabled", disabled);
-    block.querySelectorAll(".promo-size-btn").forEach(btn => {
-      btn.disabled = disabled;
-    });
-  });
-
-  document.querySelectorAll(".promo-size-btn:not(:disabled)").forEach(b => b.classList.remove("selected"));
-  renderDrinkSelectors();
-  updatePromoSheet();
-
-  promoSheet.classList.add("open");
-  overlay.classList.add("show");
-  pushHistoryState();
-}
-
-function closePromoSheet(fromPopState = false) {
-  promoSheet.classList.remove("open");
-  hideOverlayIfNothingOpen();
-  popHistoryState(fromPopState);
-}
-
-function initPromoSheet() {
-  document.getElementById("promo-minus").addEventListener("click", () => {
-    if (promoQty > 0) { promoQty--; renderDrinkSelectors(); updatePromoSheet(); }
-  });
-  document.getElementById("promo-plus").addEventListener("click", () => {
-    if (promoQty < maxPromoAdd) { promoQty++; renderDrinkSelectors(); updatePromoSheet(); }
-  });
-
-  // Extra 1 y Extra 2: cada uno elige tamaño independientemente
-  document.querySelectorAll(".promo-size-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const extraNum = parseInt(btn.dataset.extra, 10); // 1 o 2
-      const group    = document.getElementById(`extra${extraNum}-size-group`);
-      group.querySelectorAll(".promo-size-btn").forEach(b => b.classList.remove("selected"));
-      btn.classList.add("selected");
-      const entry = { size: btn.dataset.size, price: parseInt(btn.dataset.price, 10) };
-      if (extraNum === 1) extra1 = entry;
-      else                extra2 = entry;
-      updatePromoSheet();
-    });
-  });
-
-  document.getElementById("add-promo-btn").addEventListener("click", () => {
-    if (promoQty > 0) {
-      for (let p = 0; p < promoQty; p++) {
-        const d1   = drinks[p * 2];
-        const d2   = drinks[p * 2 + 1];
-        const note = `×2 Cheese Doble · ${d1} y ${d2} · ×2 Papas`;
-        const key  = makeCartKey("Promo Apertura 🎉", note);
-        const existing = findInCart(key);
-        if (existing) existing.qty++;
-        else cart.push({ key, name: "Promo Apertura 🎉", price: PROMO_PRICE, notes: note, qty: 1 });
-      }
-    }
-    [extra1, extra2].forEach((extra, i) => {
-      if (!extra) return;
-      const label    = extraSizes[extra.size].label;
-      const name     = `CheeseBurger Extra ${i + 1} (${label})`;
-      const key      = makeCartKey(name, "");
-      const existing = findInCart(key);
-      if (existing) existing.qty++;
-      else cart.push({ key, name, price: extra.price, notes: "", qty: 1 });
-    });
-    updateCart();
-    animateCartIcon();
-    closePromoSheet();
-  });
-
-  document.getElementById("open-promo-sheet").addEventListener("click", openPromoSheet);
-}
-
-/* ─── OPENING MODE init ──────────────────────────
-   Si OPENING_MODE = true: muestra el banner,
-   congela el menú regular y arranca el promo sheet.
-   ─────────────────────────────────────────────── */
-function initOpeningMode() {
-  if (!OPENING_MODE) return;
-
-  // Mostrar banner
-  document.getElementById("opening-banner").style.display = "block";
-
-  // Congelar menú (se aplica después de renderMenu)
-  requestAnimationFrame(() => {
-    menuEl.classList.add("frozen");
-  });
-
-  // Inicializar lógica del promo sheet
-  initPromoSheet();
-}
-
 renderMenu();
-initOpeningMode();
 updateStatusBadge();
 setInterval(updateStatusBadge, 60000); // refresca cada minuto
