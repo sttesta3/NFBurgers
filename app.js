@@ -579,7 +579,7 @@ document.getElementById("confirm-checkout").addEventListener("click", () => {
     checkoutError.style.display = "block";
     return;
   }
-  if (!selectedDay) {
+  if (selectedDay === null) {
     checkoutError.textContent = "Elegí el día de entrega.";
     checkoutError.style.display = "block";
     return;
