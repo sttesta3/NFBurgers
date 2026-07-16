@@ -760,6 +760,67 @@ body {
   margin-top: 8px;
 }
 
+/* ─── BOTÓN 🥤 EN FILA DE HAMBURGUESA ──────────── */
+.cart-item-drink-btn {
+  border: none;
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.55);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.cart-item-drink-btn:hover,
+.cart-item-drink-btn.active {
+  background: rgba(212,0,0,0.3);
+  color: var(--white);
+}
+
+/* ─── SELECTOR INLINE DE BEBIDA ─────────────────── */
+.inline-drink-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  animation: fadeIn 0.15s ease;
+}
+
+.inline-drink-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: var(--white);
+  font-family: var(--font-subtitle);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.inline-drink-btn span {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  font-weight: 400;
+}
+
+.inline-drink-btn:hover {
+  border-color: var(--accent);
+  background: rgba(212,0,0,0.12);
+}
+
+.inline-drink-btn:active { transform: scale(0.95); }
+
 .cart-item {
   display: flex;
   align-items: center;

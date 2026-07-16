@@ -310,13 +310,36 @@ function removeItem(key) {
 }
 
 /* ─── Update cart UI ──────────────────────────── */
+/* ─── DRINK UPSELL INLINE ────────────────────────
+   El botón 🥤 en cada burger sin bebida expande un
+   selector de 4 opciones DENTRO del carrito.
+   Sin sheets extra — todo en el mismo panel.
+   ─────────────────────────────────────────────── */
+const ALL_DRINK_NAMES = new Set(
+  categories
+    .filter(c => c.name.startsWith("Bebidas"))
+    .flatMap(c => c.items.map(i => i.name))
+);
+
+const INLINE_DRINKS = [
+  { label: "Coca Cola", name: "Coca-Cola Original 600ml", price: PRECIO_BEBIDA_CHICA },
+  { label: "Coca Zero", name: "Coca-Cola Cero 600ml",     price: PRECIO_BEBIDA_CHICA },
+  { label: "Sprite",    name: "Sprite Original 600ml",    price: PRECIO_BEBIDA_CHICA },
+  { label: "Agua",      name: "Agua 500ml",               price: PRECIO_BEBIDA_CHICA },
+];
+
+let drinkOpenKey = null; // key del item con el selector de bebida abierto
+
+function isBurger(name) {
+  return !ALL_DRINK_NAMES.has(name) && !name.includes("Papas");
+}
+
 function updateCart() {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
   cartCountEl.textContent = totalItems;
   cartCountEl.classList.toggle("hidden", totalItems === 0);
-
   cartTotalEl.textContent = totalPrice.toLocaleString("es-AR");
 
   if (cart.length === 0) {
@@ -324,21 +347,64 @@ function updateCart() {
     return;
   }
 
-  cartItemsEl.innerHTML = cart.map(item => `
-    <div class="cart-item">
-      <div class="cart-item-qty">${item.qty}</div>
-      <div class="cart-item-info">
-        <h4>${item.name}</h4>
-        <p>${formatPrice(item.price * item.qty)}</p>
-        ${item.notes ? `<p class="cart-item-notes">"${escapeHTML(item.notes)}"</p>` : ""}
+  const totalBurgers = cart.filter(i => isBurger(i.name)).reduce((s,i) => s+i.qty, 0);
+  const totalDrinks  = cart.filter(i => ALL_DRINK_NAMES.has(i.name)).reduce((s,i) => s+i.qty, 0);
+  let drinksMissing  = Math.max(0, totalBurgers - totalDrinks);
+
+  // Si el selector estaba abierto en un item que ya no existe, cerrarlo
+  if (drinkOpenKey && !cart.find(i => i.key === drinkOpenKey)) drinkOpenKey = null;
+
+  cartItemsEl.innerHTML = cart.map(item => {
+    const showDrinkBtn = isBurger(item.name) && drinksMissing > 0;
+    if (showDrinkBtn) drinksMissing = Math.max(0, drinksMissing - item.qty);
+
+    const selectorOpen = showDrinkBtn && drinkOpenKey === item.key;
+
+    return `
+      <div class="cart-item${selectorOpen ? " cart-item--drink-open" : ""}">
+        <div class="cart-item-qty">${item.qty}</div>
+        <div class="cart-item-info">
+          <h4>${item.name}</h4>
+          <p>${formatPrice(item.price * item.qty)}</p>
+          ${item.notes ? `<p class="cart-item-notes">"${escapeHTML(item.notes)}"</p>` : ""}
+        </div>
+        ${showDrinkBtn ? `
+          <button class="cart-item-drink-btn${selectorOpen ? " active" : ""}"
+                  data-key="${encodeURIComponent(item.key)}"
+                  title="Agregar bebida">🥤</button>` : ""}
+        <button class="remove-btn" data-key="${encodeURIComponent(item.key)}">×</button>
       </div>
-      <button class="remove-btn" data-key="${encodeURIComponent(item.key)}">×</button>
-    </div>
-  `).join("");
+      ${selectorOpen ? `
+        <div class="inline-drink-row">
+          ${INLINE_DRINKS.map(d => `
+            <button class="inline-drink-btn"
+                    data-name="${d.name}"
+                    data-price="${d.price}">${d.label}<span>${formatPrice(d.price)}</span></button>
+          `).join("")}
+        </div>` : ""}
+    `;
+  }).join("");
 
   cartItemsEl.querySelectorAll(".remove-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      removeItem(decodeURIComponent(btn.dataset.key));
+      const key = decodeURIComponent(btn.dataset.key);
+      if (drinkOpenKey === key) drinkOpenKey = null;
+      removeItem(key);
+    });
+  });
+
+  cartItemsEl.querySelectorAll(".cart-item-drink-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = decodeURIComponent(btn.dataset.key);
+      drinkOpenKey = drinkOpenKey === key ? null : key; // toggle
+      updateCart();
+    });
+  });
+
+  cartItemsEl.querySelectorAll(".inline-drink-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      addItem({ name: btn.dataset.name, price: parseInt(btn.dataset.price, 10), notes: "" });
+      drinkOpenKey = null; // addItem llama a updateCart, que re-renderiza
     });
   });
 }
@@ -346,16 +412,11 @@ function updateCart() {
 /* ─── Cart icon bounce ────────────────────────── */
 function animateCartIcon() {
   cartCountEl.classList.remove("pop");
-  void cartCountEl.offsetWidth; /* reflow to restart animation */
+  void cartCountEl.offsetWidth;
   cartCountEl.classList.add("pop");
 }
 
-/* ─── History helper (botón "atrás" en mobile) ───
-   Cualquier panel (tamaño, horarios, checkout, carrito)
-   agrega un estado al historial al abrir, y lo consume
-   al cerrar, para que el botón/gesto "atrás" cierre el
-   panel en vez de salir de la página.
-   ─────────────────────────────────────────────── */
+/* ─── History helper ─────────────────────────── */
 let historyPushed = false;
 
 function pushHistoryState() {
@@ -368,9 +429,7 @@ function pushHistoryState() {
 function popHistoryState(fromPopState) {
   if (historyPushed) {
     historyPushed = false;
-    if (!fromPopState) {
-      history.back();
-    }
+    if (!fromPopState) history.back();
   }
 }
 
