@@ -357,44 +357,53 @@ function updateCart() {
     return;
   }
 
-  const totalBurgers = cart.filter(i => isBurger(i.name)).reduce((s,i) => s+i.qty, 0);
-  const totalDrinks  = cart
+  /* ── Diccionario: cuántas unidades de cada burger necesitan bebida ──
+     Las bebidas se asignan a los primeros burgers en orden.
+     Ej: 4 burgers, 1 chica + 1 grande (cubre 3) → solo la última necesita.
+  ── */
+  let coverage = cart
     .filter(i => ALL_DRINK_NAMES.has(i.name))
-    .reduce((s, i) => s + i.qty * drinkCoverage(i.name), 0); // grande cuenta x2
+    .reduce((s, i) => s + i.qty * drinkCoverage(i.name), 0);
 
-  let drinksMissing = Math.max(0, totalBurgers - totalDrinks);
+  const needsDrink = {}; // key -> unidades sin bebida
+  for (const item of cart) {
+    if (!isBurger(item.name)) continue;
+    const covered   = Math.min(coverage, item.qty);
+    coverage       -= covered;
+    const uncovered = item.qty - covered;
+    if (uncovered > 0) needsDrink[item.key] = uncovered;
+  }
 
-  if (drinkOpenKey && !cart.find(i => i.key === drinkOpenKey)) drinkOpenKey = null;
+  if (drinkOpenKey && !needsDrink[drinkOpenKey]) drinkOpenKey = null;
 
   cartItemsEl.innerHTML = cart.map(item => {
-    const showDrinkBtn = isBurger(item.name) && drinksMissing > 0;
-    if (showDrinkBtn) drinksMissing = Math.max(0, drinksMissing - item.qty);
-
+    const showDrinkBtn = !!needsDrink[item.key];
     const selectorOpen = showDrinkBtn && drinkOpenKey === item.key;
 
     return `
-      <div class="cart-item${selectorOpen ? " cart-item--drink-open" : ""}">
-        <div class="cart-item-qty">${item.qty}</div>
-        <div class="cart-item-info">
-          <h4>${item.name}</h4>
-          <p>${formatPrice(item.price * item.qty)}</p>
-          ${item.notes ? `<p class="cart-item-notes">"${escapeHTML(item.notes)}"</p>` : ""}
+      <div class="cart-item-wrap${selectorOpen ? " cart-item-wrap--open" : ""}">
+        <div class="cart-item">
+          <div class="cart-item-qty">${item.qty}</div>
+          <div class="cart-item-info">
+            <h4>${item.name}</h4>
+            <p>${formatPrice(item.price * item.qty)}</p>
+            ${item.notes ? `<p class="cart-item-notes">"${escapeHTML(item.notes)}"</p>` : ""}
+          </div>
+          ${showDrinkBtn ? `
+            <button class="cart-item-drink-btn${selectorOpen ? " active" : ""}"
+                    data-key="${encodeURIComponent(item.key)}"
+                    title="Agregar bebida">🥤</button>` : ""}
+          <button class="remove-btn" data-key="${encodeURIComponent(item.key)}">×</button>
         </div>
-        ${showDrinkBtn ? `
-          <button class="cart-item-drink-btn${selectorOpen ? " active" : ""}"
-                  data-key="${encodeURIComponent(item.key)}"
-                  title="Agregar bebida">🥤</button>` : ""}
-        <button class="remove-btn" data-key="${encodeURIComponent(item.key)}">×</button>
-      </div>
-      ${selectorOpen ? `
-        <div class="inline-drink-row">
-          ${INLINE_DRINKS.map(d => `
-            <button class="inline-drink-btn"
-                    data-name="${d.name}"
-                    data-price="${d.price}">${d.label}<span>${formatPrice(d.price)}</span></button>
-          `).join("")}
-        </div>` : ""}
-    `;
+        ${selectorOpen ? `
+          <div class="inline-drink-row">
+            ${INLINE_DRINKS.map(d => `
+              <button class="inline-drink-btn"
+                      data-name="${d.name}"
+                      data-price="${d.price}">${d.label}<span>${formatPrice(d.price)}</span></button>
+            `).join("")}
+          </div>` : ""}
+      </div>`;
   }).join("");
 
   cartItemsEl.querySelectorAll(".remove-btn").forEach(btn => {

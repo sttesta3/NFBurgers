@@ -785,8 +785,7 @@ body {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  padding: 8px 0 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-top: 10px;
   animation: fadeIn 0.15s ease;
 }
 
@@ -821,12 +820,17 @@ body {
 
 .inline-drink-btn:active { transform: scale(0.95); }
 
+/* Wrapper: maneja el padding, borde y contiene el inline-drink-row */
+.cart-item-wrap {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Fila flex: qty / info / botones — sin borde ni padding propios */
 .cart-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .cart-item-qty {
