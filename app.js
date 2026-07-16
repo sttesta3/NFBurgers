@@ -311,14 +311,19 @@ function removeItem(key) {
 
 /* ─── Update cart UI ──────────────────────────── */
 /* ─── DRINK UPSELL INLINE ────────────────────────
-   El botón 🥤 en cada burger sin bebida expande un
-   selector de 4 opciones DENTRO del carrito.
-   Sin sheets extra — todo en el mismo panel.
+   Botón 🥤 en cada burger sin bebida. Al pulsarlo
+   se expande un selector de 4 opciones dentro del
+   carrito — sin sheets extra, sin solapamiento.
+   Bebida grande (2.25lts) cubre 2 hamburguesas.
    ─────────────────────────────────────────────── */
 const ALL_DRINK_NAMES = new Set(
   categories
     .filter(c => c.name.startsWith("Bebidas"))
     .flatMap(c => c.items.map(i => i.name))
+);
+
+const LARGE_DRINK_NAMES = new Set(
+  (categories.find(c => c.name === "Bebidas grandes")?.items || []).map(i => i.name)
 );
 
 const INLINE_DRINKS = [
@@ -328,10 +333,15 @@ const INLINE_DRINKS = [
   { label: "Agua",      name: "Agua 500ml",               price: PRECIO_BEBIDA_CHICA },
 ];
 
-let drinkOpenKey = null; // key del item con el selector de bebida abierto
+let drinkOpenKey = null;
 
 function isBurger(name) {
   return !ALL_DRINK_NAMES.has(name) && !name.includes("Papas");
+}
+
+/* Bebida grande cubre 2 burgers, chica cubre 1 */
+function drinkCoverage(name) {
+  return LARGE_DRINK_NAMES.has(name) ? 2 : 1;
 }
 
 function updateCart() {
@@ -348,10 +358,12 @@ function updateCart() {
   }
 
   const totalBurgers = cart.filter(i => isBurger(i.name)).reduce((s,i) => s+i.qty, 0);
-  const totalDrinks  = cart.filter(i => ALL_DRINK_NAMES.has(i.name)).reduce((s,i) => s+i.qty, 0);
-  let drinksMissing  = Math.max(0, totalBurgers - totalDrinks);
+  const totalDrinks  = cart
+    .filter(i => ALL_DRINK_NAMES.has(i.name))
+    .reduce((s, i) => s + i.qty * drinkCoverage(i.name), 0); // grande cuenta x2
 
-  // Si el selector estaba abierto en un item que ya no existe, cerrarlo
+  let drinksMissing = Math.max(0, totalBurgers - totalDrinks);
+
   if (drinkOpenKey && !cart.find(i => i.key === drinkOpenKey)) drinkOpenKey = null;
 
   cartItemsEl.innerHTML = cart.map(item => {
@@ -396,7 +408,7 @@ function updateCart() {
   cartItemsEl.querySelectorAll(".cart-item-drink-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const key = decodeURIComponent(btn.dataset.key);
-      drinkOpenKey = drinkOpenKey === key ? null : key; // toggle
+      drinkOpenKey = drinkOpenKey === key ? null : key;
       updateCart();
     });
   });
@@ -404,7 +416,7 @@ function updateCart() {
   cartItemsEl.querySelectorAll(".inline-drink-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       addItem({ name: btn.dataset.name, price: parseInt(btn.dataset.price, 10), notes: "" });
-      drinkOpenKey = null; // addItem llama a updateCart, que re-renderiza
+      drinkOpenKey = null;
     });
   });
 }
@@ -412,11 +424,16 @@ function updateCart() {
 /* ─── Cart icon bounce ────────────────────────── */
 function animateCartIcon() {
   cartCountEl.classList.remove("pop");
-  void cartCountEl.offsetWidth;
+  void cartCountEl.offsetWidth; /* reflow to restart animation */
   cartCountEl.classList.add("pop");
 }
 
-/* ─── History helper ─────────────────────────── */
+/* ─── History helper (botón "atrás" en mobile) ───
+   Cualquier panel (tamaño, horarios, checkout, carrito)
+   agrega un estado al historial al abrir, y lo consume
+   al cerrar, para que el botón/gesto "atrás" cierre el
+   panel en vez de salir de la página.
+   ─────────────────────────────────────────────── */
 let historyPushed = false;
 
 function pushHistoryState() {
@@ -429,7 +446,9 @@ function pushHistoryState() {
 function popHistoryState(fromPopState) {
   if (historyPushed) {
     historyPushed = false;
-    if (!fromPopState) history.back();
+    if (!fromPopState) {
+      history.back();
+    }
   }
 }
 
