@@ -310,13 +310,46 @@ function removeItem(key) {
 }
 
 /* ─── Update cart UI ──────────────────────────── */
+/* ─── DRINK UPSELL INLINE ────────────────────────
+   Botón 🥤 en cada burger sin bebida. Al pulsarlo
+   se expande un selector de 4 opciones dentro del
+   carrito — sin sheets extra, sin solapamiento.
+   Bebida grande (2.25lts) cubre 2 hamburguesas.
+   ─────────────────────────────────────────────── */
+const ALL_DRINK_NAMES = new Set(
+  categories
+    .filter(c => c.name.startsWith("Bebidas"))
+    .flatMap(c => c.items.map(i => i.name))
+);
+
+const LARGE_DRINK_NAMES = new Set(
+  (categories.find(c => c.name === "Bebidas grandes")?.items || []).map(i => i.name)
+);
+
+const INLINE_DRINKS = [
+  { label: "Coca Cola", name: "Coca-Cola Original 600ml", price: PRECIO_BEBIDA_CHICA },
+  { label: "Coca Zero", name: "Coca-Cola Cero 600ml",     price: PRECIO_BEBIDA_CHICA },
+  { label: "Sprite",    name: "Sprite Original 600ml",    price: PRECIO_BEBIDA_CHICA },
+  { label: "Agua",      name: "Agua 500ml",               price: PRECIO_BEBIDA_CHICA },
+];
+
+let drinkOpenKey = null;
+
+function isBurger(name) {
+  return !ALL_DRINK_NAMES.has(name) && !name.includes("Papas");
+}
+
+/* Bebida grande cubre 2 burgers, chica cubre 1 */
+function drinkCoverage(name) {
+  return LARGE_DRINK_NAMES.has(name) ? 2 : 1;
+}
+
 function updateCart() {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
   cartCountEl.textContent = totalItems;
   cartCountEl.classList.toggle("hidden", totalItems === 0);
-
   cartTotalEl.textContent = totalPrice.toLocaleString("es-AR");
 
   if (cart.length === 0) {
@@ -324,21 +357,75 @@ function updateCart() {
     return;
   }
 
-  cartItemsEl.innerHTML = cart.map(item => `
-    <div class="cart-item">
-      <div class="cart-item-qty">${item.qty}</div>
-      <div class="cart-item-info">
-        <h4>${item.name}</h4>
-        <p>${formatPrice(item.price * item.qty)}</p>
-        ${item.notes ? `<p class="cart-item-notes">"${escapeHTML(item.notes)}"</p>` : ""}
-      </div>
-      <button class="remove-btn" data-key="${encodeURIComponent(item.key)}">×</button>
-    </div>
-  `).join("");
+  /* ── Diccionario: cuántas unidades de cada burger necesitan bebida ──
+     Las bebidas se asignan a los primeros burgers en orden.
+     Ej: 4 burgers, 1 chica + 1 grande (cubre 3) → solo la última necesita.
+  ── */
+  let coverage = cart
+    .filter(i => ALL_DRINK_NAMES.has(i.name))
+    .reduce((s, i) => s + i.qty * drinkCoverage(i.name), 0);
+
+  const needsDrink = {}; // key -> unidades sin bebida
+  for (const item of cart) {
+    if (!isBurger(item.name)) continue;
+    const covered   = Math.min(coverage, item.qty);
+    coverage       -= covered;
+    const uncovered = item.qty - covered;
+    if (uncovered > 0) needsDrink[item.key] = uncovered;
+  }
+
+  if (drinkOpenKey && !needsDrink[drinkOpenKey]) drinkOpenKey = null;
+
+  cartItemsEl.innerHTML = cart.map(item => {
+    const showDrinkBtn = !!needsDrink[item.key];
+    const selectorOpen = showDrinkBtn && drinkOpenKey === item.key;
+
+    return `
+      <div class="cart-item-wrap${selectorOpen ? " cart-item-wrap--open" : ""}">
+        <div class="cart-item">
+          <div class="cart-item-qty">${item.qty}</div>
+          <div class="cart-item-info">
+            <h4>${item.name}</h4>
+            <p>${formatPrice(item.price * item.qty)}</p>
+            ${item.notes ? `<p class="cart-item-notes">"${escapeHTML(item.notes)}"</p>` : ""}
+          </div>
+          ${showDrinkBtn ? `
+            <button class="cart-item-drink-btn${selectorOpen ? " active" : ""}"
+                    data-key="${encodeURIComponent(item.key)}"
+                    title="Agregar bebida">🥤</button>` : ""}
+          <button class="remove-btn" data-key="${encodeURIComponent(item.key)}">×</button>
+        </div>
+        ${selectorOpen ? `
+          <div class="inline-drink-row">
+            ${INLINE_DRINKS.map(d => `
+              <button class="inline-drink-btn"
+                      data-name="${d.name}"
+                      data-price="${d.price}">${d.label}<span>${formatPrice(d.price)}</span></button>
+            `).join("")}
+          </div>` : ""}
+      </div>`;
+  }).join("");
 
   cartItemsEl.querySelectorAll(".remove-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      removeItem(decodeURIComponent(btn.dataset.key));
+      const key = decodeURIComponent(btn.dataset.key);
+      if (drinkOpenKey === key) drinkOpenKey = null;
+      removeItem(key);
+    });
+  });
+
+  cartItemsEl.querySelectorAll(".cart-item-drink-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = decodeURIComponent(btn.dataset.key);
+      drinkOpenKey = drinkOpenKey === key ? null : key;
+      updateCart();
+    });
+  });
+
+  cartItemsEl.querySelectorAll(".inline-drink-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      addItem({ name: btn.dataset.name, price: parseInt(btn.dataset.price, 10), notes: "" });
+      drinkOpenKey = null;
     });
   });
 }
