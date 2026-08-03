@@ -107,38 +107,51 @@ const schedule = [
 ];
 
 /* ─── DATOS DINÁMICOS (Google Sheets) ────────────
-   Precios y horarios se pueden actualizar desde dos
-   Sheets publicadas como CSV, sin backend ni DB.
+   Precios y horarios se actualizan desde dos pestañas
+   de una misma Sheet, publicada como CSV vía el
+   endpoint gviz (soporta CORS nativo, sin proxies).
 
-   Diseño de seguridad:
+   Seguridad:
    - Nunca se usa eval() ni se interpreta el CSV como código.
-   - El menú (nombres/descripciones) SIGUE viviendo en este
+   - El menú (nombres/descripciones) sigue viviendo en este
      archivo; de la sheet solo se toman precios y horarios,
-     matcheados por nombre.
-   - Todo dato externo se valida con una whitelist estricta
-     de formato (número entero positivo / HH:MM) antes de
-     usarse. Si no matchea, se descarta y se conserva el
-     valor anterior (fallback seguro) — nunca se inserta
-     texto libre de la sheet en innerHTML.
+     matcheados por nombre / número de día.
+   - Todo dato externo pasa por una whitelist estricta de
+     formato (entero positivo / HH:MM) antes de usarse. Si
+     no matchea, se descarta y se conserva el valor anterior
+     (fallback seguro) — nunca se inserta texto libre de la
+     sheet en innerHTML.
    - Fetch con timeout, límite de tamaño de respuesta, y
      caché local (localStorage) por si falla la red.
    ─────────────────────────────────────────────── */
-/* Se usa el endpoint gviz (en vez de /pub?output=csv) porque
-   este SÍ responde con Access-Control-Allow-Origin: *, así que
-   funciona con fetch() directo desde el navegador sin proxies
-   de terceros. Requiere que la sheet esté compartida como
-   "Cualquiera con el enlace puede ver". */
-const SHEET_ID            = "1Sc_U_oIUehooxD2bbFeIwvGkRpneYt0E0aRJzG5e4IA";
-const PRECIOS_CSV_URL     = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
-const HORARIOS_CSV_URL    = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1934947084`;
+const SHEET_ID = "1Sc_U_oIUehooxD2bbFeIwvGkRpneYt0E0aRJzG5e4IA";
+/* Endpoint principal: el link real de "Publicar en la web"
+   (Archivo > Compartir > Publicar en la web), formato
+   /d/e/<token-de-publicación>/pub — es público sin login y
+   responde con headers CORS. Cada pestaña tiene su propio gid
+   dentro del mismo token de publicación. */
+const PUB_TOKEN = "2PACX-1vTeaDZNl2ccLpP1zwZtfyTQjtI79NGuEnnymzD8Ua_F8kP06WFnil8dXwhy6Cl5Iszme-y1ZNU7w87F";
+function pubCsvUrl(gid) {
+  return `https://docs.google.com/spreadsheets/d/e/${PUB_TOKEN}/pub?gid=${gid}&single=true&output=csv`;
+}
+/* Endpoint de respaldo: gviz respeta permisos de "compartir"
+   (no de "publicar"), así que solo funciona si la sheet está
+   además compartida como "Cualquiera con el enlace". Si no,
+   redirige a login y fetchCSV lo descarta igual que cualquier
+   otro error de red. */
+function gvizCsvUrl(gid) {
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
+}
+const PRECIOS_CSV_URLS   = [pubCsvUrl(0), gvizCsvUrl(0)];
+const HORARIOS_CSV_URLS  = [pubCsvUrl(1934947084), gvizCsvUrl(1934947084)];
 
 const CACHE_KEY_PRECIOS  = "nf_precios_cache_v1";
 const CACHE_KEY_HORARIOS = "nf_horarios_cache_v1";
-const CSV_MAX_BYTES      = 200000; // límite defensivo, una sheet de menú no debería pesar esto
+const CSV_MAX_BYTES      = 200000; // límite defensivo
 const FETCH_TIMEOUT_MS   = 6000;
 
 function saveCache(key, rows) {
-  try { localStorage.setItem(key, JSON.stringify({ rows, ts: Date.now() })); } catch (e) { /* localStorage puede fallar (modo privado, cuota); no es crítico */ }
+  try { localStorage.setItem(key, JSON.stringify({ rows, ts: Date.now() })); } catch (e) { /* localStorage puede fallar; no es crítico */ }
 }
 
 function loadCache(key) {
@@ -150,8 +163,8 @@ function loadCache(key) {
   } catch (e) { return null; }
 }
 
-/* Parser CSV mínimo (soporta comillas, comas y saltos de línea
-   dentro de campos citados). No ejecuta nada, solo separa texto. */
+/* Parser CSV mínimo (comillas, comas, saltos de línea dentro
+   de campos citados). Solo separa texto, no ejecuta nada. */
 function parseCSV(text) {
   const rows = [];
   let row = [], field = "", inQuotes = false;
@@ -171,7 +184,7 @@ function parseCSV(text) {
     } else if (c === '\n') {
       row.push(field); rows.push(row); row = []; field = "";
     } else if (c === '\r') {
-      // ignorar, lo maneja el \n siguiente
+      // lo maneja el \n siguiente
     } else {
       field += c;
     }
@@ -180,9 +193,20 @@ function parseCSV(text) {
   return rows.filter(r => !(r.length === 1 && r[0].trim() === ""));
 }
 
+/* Normaliza encabezados: saca tildes, pasa a minúscula, y
+   convierte espacios en guion bajo — así "Día", "Precio Simple"
+   matchean igual que "dia", "precio_simple". */
+function normalizeHeader(h) {
+  return h
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+}
+
 function rowsToObjects(rows) {
   if (!rows.length) return [];
-  const headers = rows[0].map(h => h.trim().toLowerCase());
+  const headers = rows[0].map(normalizeHeader);
   return rows.slice(1).map(r => {
     const obj = {};
     headers.forEach((h, idx) => { obj[h] = (r[idx] ?? "").trim(); });
@@ -190,27 +214,48 @@ function rowsToObjects(rows) {
   });
 }
 
-async function fetchCSV(url, cacheKey) {
+async function fetchOne(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
-    clearTimeout(timer);
+    const res = await fetch(url, { signal: controller.signal, cache: "no-store", redirect: "follow" });
     if (!res.ok) throw new Error("HTTP " + res.status);
+    // Nota: /pub redirige (307) legítimamente a *.googleusercontent.com
+    // con el CSV real, así que no se puede validar por dominio final.
+    // En cambio, se valida por content-type y por la forma del cuerpo
+    // (si Google devuelve una página de login, viene como HTML).
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType && !/text\/csv|text\/plain|application\/binary|application\/octet-stream/i.test(contentType)) {
+      throw new Error("Content-Type inesperado: " + contentType);
+    }
     let text = await res.text();
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // el endpoint gviz devuelve BOM UTF-8
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM UTF-8
     if (text.length > CSV_MAX_BYTES) throw new Error("Respuesta demasiado grande, se descarta por seguridad");
-    const rows = rowsToObjects(parseCSV(text));
-    saveCache(cacheKey, rows);
-    return rows;
-  } catch (err) {
-    console.warn("No se pudo cargar datos dinámicos desde Sheets, usando fallback:", err);
-    return loadCache(cacheKey); // puede ser null; en ese caso queda el hardcode del código
+    // Si Google devuelve la página de login HTML en vez de CSV, no debe colarse como dato.
+    if (/^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) throw new Error("Respuesta no es CSV (¿requiere login?)");
+    return text;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/* Valida que sea un entero positivo razonable. Cualquier otra
-   cosa (texto, fórmulas, HTML, etc.) se descarta silenciosamente. */
+async function fetchCSV(urls, cacheKey) {
+  for (const url of urls) {
+    try {
+      const text = await fetchOne(url);
+      const rows = parseCSV(text); // arrays crudos; cada caller decide cómo interpretarlos
+      saveCache(cacheKey, rows);
+      return rows;
+    } catch (err) {
+      console.warn("[NF] Falló", url, "->", err.message);
+    }
+  }
+  console.warn("[NF] Ninguna URL funcionó, usando caché/fallback local para", cacheKey);
+  return loadCache(cacheKey); // null si tampoco hay caché -> queda el hardcode del código
+}
+
+/* Entero positivo razonable. Cualquier otra cosa (texto,
+   fórmulas, HTML) se descarta silenciosamente. */
 function toValidPrice(str) {
   if (str === undefined || str === "") return null;
   const cleaned = String(str).replace(/[^\d]/g, "");
@@ -220,81 +265,141 @@ function toValidPrice(str) {
   return n;
 }
 
-/* Valida formato HH:MM estricto (00-23 : 00-59). */
+/* Formato H:MM u HH:MM (0-23 : 00-59). La sheet real usa horas
+   sin cero a la izquierda para la madrugada (ej. "0:00", "1:00"). */
 function isValidTime(str) {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(str);
+  return /^([0-9]|1\d|2[0-3]):[0-5]\d$/.test(str);
 }
 
-/* Actualiza item.price / item.sizes EN EL LUGAR, matcheando por
-   nombre (case-insensitive). Si una celda no es un precio válido,
-   ese campo puntual se ignora y queda el valor por defecto. */
-function applyPricesFromSheet(rows) {
-  if (!Array.isArray(rows)) return;
-  const byName = new Map();
-  rows.forEach(r => {
-    const nombre = (r.nombre || "").trim().toLowerCase();
-    if (nombre) byName.set(nombre, r);
+function normalizeName(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+/* La sheet de precios tiene DOS tablas apiladas:
+   1) Fila de encabezados con nombres de constantes
+      (PRECIO_BEBIDA_CHICA, PRECIO_BEBIDA_GRANDE, "Papas fritas")
+      + una fila de valores debajo.
+   2) Más abajo, una tabla de hamburguesas con encabezado
+      NOMBRE,DESCRIPCION,SIMPLE,DOBLE,TRIPLE.
+   Se buscan por contenido, no por posición fija, para tolerar
+   alguna fila en blanco de más o de menos. */
+function applyPricesFromSheet(rawRows) {
+  if (!Array.isArray(rawRows) || rawRows.length < 2) return;
+
+  // ── Tabla 1: constantes (bebidas / papas) ──
+  const constHeaders = (rawRows[0] || []).map(h => (h || "").trim());
+  const constValues  = (rawRows[1] || []);
+  const constants = {}; // key normalizada (mayúsculas/trim) -> valor crudo
+  constHeaders.forEach((h, i) => {
+    if (h) constants[h.toUpperCase()] = (constValues[i] || "").trim();
   });
 
-  categories.forEach(cat => {
-    cat.items.forEach(item => {
-      const row = byName.get(item.name.trim().toLowerCase());
-      if (!row) return;
+  const precioBebidaChica  = toValidPrice(constants["PRECIO_BEBIDA_CHICA"]);
+  const precioBebidaGrande = toValidPrice(constants["PRECIO_BEBIDA_GRANDE"]);
+  const precioPapas        = toValidPrice(constants["PAPAS FRITAS"]);
 
-      if (cat.type === "sizes") {
-        const simple = toValidPrice(row.precio_simple);
-        const doble  = toValidPrice(row.precio_doble);
-        if (simple !== null) item.sizes.simple = simple;
-        if (doble !== null) item.sizes.doble = doble;
-        if (row.precio_triple !== undefined) {
-          // vacío o inválido -> triple no disponible (null), igual que hoy
-          item.sizes.triple = toValidPrice(row.precio_triple);
-        }
-      } else {
-        const price = toValidPrice(row.precio);
-        if (price !== null) item.price = price;
+  let matched = 0;
+  categories.forEach(cat => {
+    if (cat.name === "Bebidas chicas" && precioBebidaChica !== null) {
+      cat.items.forEach(item => { item.price = precioBebidaChica; matched++; });
+    }
+    if (cat.name === "Bebidas grandes" && precioBebidaGrande !== null) {
+      cat.items.forEach(item => { item.price = precioBebidaGrande; matched++; });
+    }
+    if (cat.name === "Adicionales" && precioPapas !== null) {
+      cat.items.forEach(item => {
+        if (normalizeName(item.name) === "papas fritas") { item.price = precioPapas; matched++; }
+      });
+    }
+  });
+
+  // ── Tabla 2: hamburguesas (busca la fila que empieza con "NOMBRE") ──
+  const burgerHeaderIdx = rawRows.findIndex((r, i) => i >= 2 && normalizeHeader(r[0] || "") === "nombre");
+  const burgersByName = new Map();
+  if (burgerHeaderIdx !== -1) {
+    const headers = rawRows[burgerHeaderIdx].map(normalizeHeader);
+    for (let i = burgerHeaderIdx + 1; i < rawRows.length; i++) {
+      const r = rawRows[i];
+      if (!r || !r.some(c => c && c.trim() !== "")) continue; // fila vacía
+      const obj = {};
+      headers.forEach((h, idx) => { obj[h] = (r[idx] ?? "").trim(); });
+      const nombre = normalizeName(obj.nombre || "");
+      if (nombre) burgersByName.set(nombre, obj);
+    }
+  }
+
+  const unmatchedBurgers = [];
+  categories.forEach(cat => {
+    if (cat.type !== "sizes") return;
+    cat.items.forEach(item => {
+      const row = burgersByName.get(normalizeName(item.name));
+      if (!row) { unmatchedBurgers.push(item.name); return; }
+      matched++;
+      // Acepta tanto "simple/doble/triple" como "precio_simple/..." como nombre de columna.
+      const rawSimple = row.simple !== undefined ? row.simple : row.precio_simple;
+      const rawDoble  = row.doble  !== undefined ? row.doble  : row.precio_doble;
+      const rawTriple = row.triple !== undefined ? row.triple : row.precio_triple;
+      const simple = toValidPrice(rawSimple);
+      const doble  = toValidPrice(rawDoble);
+      if (simple !== null) item.sizes.simple = simple;
+      if (doble !== null) item.sizes.doble = doble;
+      if (rawTriple !== undefined) {
+        item.sizes.triple = toValidPrice(rawTriple); // vacío/inválido -> no disponible
       }
     });
   });
+
+  console.log(`[NF] Precios aplicados: bebida chica=${precioBebidaChica}, bebida grande=${precioBebidaGrande}, papas=${precioPapas}, ${matched} campos actualizados en total.`);
+  if (unmatchedBurgers.length) console.warn("[NF] Hamburguesas sin match en la sheet:", unmatchedBurgers);
 }
 
 /* Actualiza schedule[].open/close EN EL LUGAR. day/label nunca
-   se tocan (siguen siendo los del código), solo horas. */
-function applyScheduleFromSheet(rows) {
-  if (!Array.isArray(rows)) return;
+   se tocan. Columnas esperadas: dia (0-6), apertura, cierre
+   en HH:MM (ambas vacías = cerrado ese día). */
+/* Actualiza schedule[].open/close EN EL LUGAR. day/label del
+   código nunca se pisan con texto de la sheet (solo se usa
+   "day" para encontrar la fila correcta); solo se actualizan
+   las horas, ya validadas. Columnas esperadas: day, label,
+   open, close (label es informativo, no se usa para matchear). */
+function applyScheduleFromSheet(rawRows) {
+  if (!Array.isArray(rawRows) || !rawRows.length) return;
+  const rows = rowsToObjects(rawRows);
+  let applied = 0;
   rows.forEach(r => {
-    const dia = parseInt(r.dia, 10);
+    const dia = parseInt(r.day, 10);
     if (!Number.isInteger(dia) || dia < 0 || dia > 6) return;
     const entry = schedule.find(s => s.day === dia);
     if (!entry) return;
 
-    const apertura = (r.apertura || "").trim();
-    const cierre   = (r.cierre || "").trim();
+    const apertura = (r.open || "").trim();
+    const cierre   = (r.close || "").trim();
 
     if (apertura === "" && cierre === "") {
       entry.open = null;
       entry.close = null;
+      applied++;
     } else if (isValidTime(apertura) && isValidTime(cierre)) {
       entry.open = apertura;
       entry.close = cierre;
+      applied++;
     }
-    // formato inválido -> se conserva el horario anterior (fallback seguro)
+    // formato inválido -> se conserva el horario anterior
   });
+  console.log(`[NF] Horarios: ${applied} de ${rows.length} filas aplicadas.`);
 }
 
 async function loadDynamicData() {
-  console.log("[NF] Cargando datos dinámicos desde Sheets…");
   const [priceRows, scheduleRows] = await Promise.all([
-    fetchCSV(PRECIOS_CSV_URL, CACHE_KEY_PRECIOS),
-    fetchCSV(HORARIOS_CSV_URL, CACHE_KEY_HORARIOS),
+    fetchCSV(PRECIOS_CSV_URLS, CACHE_KEY_PRECIOS),
+    fetchCSV(HORARIOS_CSV_URLS, CACHE_KEY_HORARIOS),
   ]);
-  console.log("[NF] Filas de precios recibidas:", priceRows);
-  console.log("[NF] Filas de horarios recibidas:", scheduleRows);
+  console.log("[NF] Filas de precios parseadas (texto plano):", JSON.stringify(priceRows));
+  console.log("[NF] Filas de horarios parseadas (texto plano):", JSON.stringify(scheduleRows));
 
   if (priceRows) applyPricesFromSheet(priceRows);
   if (scheduleRows) applyScheduleFromSheet(scheduleRows);
-  console.log("[NF] categories luego de aplicar precios:", categories);
-  console.log("[NF] schedule luego de aplicar horarios:", schedule);
+  console.log("[NF] categories luego de aplicar (texto plano):", JSON.stringify(categories));
+  console.log("[NF] schedule luego de aplicar (texto plano):", JSON.stringify(schedule));
 
   if (priceRows || scheduleRows) {
     menuEl.innerHTML = "";
@@ -1037,9 +1142,8 @@ renderMenu();
 updateStatusBadge();
 setInterval(updateStatusBadge, 60000); // refresca cada minuto
 
-/* Carga precios y horarios desde Sheets en segundo plano.
-   El sitio ya se ve y funciona con los valores por defecto
-   de este archivo; si Sheets responde OK, se actualiza en vivo.
-   Si falla (sin internet, sheet caída, etc.) queda el fallback. */
+/* El sitio ya funciona con los valores por defecto de este
+   archivo; si Sheets responde OK, precios y horarios se
+   actualizan en vivo sin recargar la página. */
 loadDynamicData();
 setInterval(loadDynamicData, 5 * 60 * 1000); // vuelve a chequear cada 5 min
