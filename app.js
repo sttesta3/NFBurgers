@@ -26,42 +26,42 @@ const categories = [
       {
         name: "CheeseBurger",
         description: "Pan de papa, carne smasheada, cheddar." + INCLUYE_PAPAS,
-        sizes: { simple: 12000, doble: 15000, triple: 18000 }
+        sizes: { simple: 13000, doble: 16000, triple: 19000 }
       },
       {
         name: "Cuartel",
         description: "Carne smasheada, cheddar, cebolla picada, ketchup, mostaza." + INCLUYE_PAPAS,
-        sizes: { simple: 12500, doble: 15500, triple: null }
+        sizes: { simple: 13500, doble: 16500, triple: null }
       },
       {
         name: "CheeseBacon",
         description: "Carne smasheada, cheddar, bacon, ketchup." + INCLUYE_PAPAS,
-        sizes: { simple: 13000, doble: 16000, triple: 19000 }
+        sizes: { simple: 14000, doble: 17000, triple: 20000 }
       },
       {
         name: "Pepinium",
         description: "Carne smasheada, cheddar, pepinillos, lechuga, salsa mil islas." + INCLUYE_PAPAS,
-        sizes: { simple: 13000, doble: 16000, triple: null }
+        sizes: { simple: 14000, doble: 17000, triple: null }
       },
       {
         name: "Americana",
         description: "Carne smasheada, cheddar, lechuga, tomate, salsa NF." + INCLUYE_PAPAS,
-        sizes: { simple: 13000, doble: 16000, triple: null }
+        sizes: { simple: 14000, doble: 17000, triple: null }
       },
       {
         name: "Bacon Honey",
         description: "Carne smasheada, cheddar, bacon, miel, salsa BBQ." + INCLUYE_PAPAS,
-        sizes: { simple: 14000, doble: 17000, triple: null }
+        sizes: { simple: 15000, doble: 18000, triple: null }
       },
       {
         name: "Oklahoma",
         description: "Carne smasheada con cebolla, cheddar, bacon, salsa alioli." + INCLUYE_PAPAS,
-        sizes: { simple: 16000, doble: 18000, triple: null }
+        sizes: { simple: 16000, doble: 19000, triple: null }
       },
       {
         name: "Crispy Onion",
         description: "Carne smasheada, bacon, cebolla crispy, salsa BBQ." + INCLUYE_PAPAS,
-        sizes: { simple: 16000, doble: 18000, triple: null }
+        sizes: { simple: 16000, doble: 19000, triple: null }
       },
     ]
   },
@@ -86,7 +86,7 @@ const categories = [
     name: "Adicionales",
     type: "notes",
     items: [
-      { name: "Papas fritas", description: "Papas fritas", price: 2000 },
+      { name: "Papas fritas", description: "Papas fritas", price: 4000 },
     ]
   },
 ];
