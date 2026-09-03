@@ -733,7 +733,7 @@ function sendOrderToWhatsApp() {
   msg += `%0A🕐 Turno: ${selectedSlot}hs`;
   msg += `%0A📍 Dirección: ${encodeURIComponent(addressInput.value.trim())}`;
 
-  const phone = "5491125522004";
+  const phone = "5491168461341";
   window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
 
   // Limpiar carrito después de enviar
